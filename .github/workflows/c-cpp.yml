@@ -1,0 +1,98 @@
+name: C/C++ CI
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Preparation on Linux
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install libpulse-dev
+
+    - name: Preparation on Windows
+      if: runner.os == 'Windows'
+      uses: microsoft/setup-msbuild@v1.0.2
+
+    - name: Build libraries
+      run: |
+        cmake -B build_debug -DCMAKE_BUILD_TYPE=Debug
+        cmake --build build_debug --config Debug
+        cmake -B build_release -DCMAKE_BUILD_TYPE=Release
+        cmake --build build_release --config Release
+
+    - name: Test
+      run: |
+        pushd build_debug
+        ctest -C Debug
+        popd
+        pushd build_release
+        ctest -C Release
+        popd
+
+    - name: Build tools
+      run: |
+        pushd tools/linne_codec
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release
+        popd
+        pushd tools/linne_player
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release
+        popd
+
+    - name: Create artifacts on UNIX platform
+      if: runner.os == 'Linux' || runner.os == 'macOS'
+      run: |
+        ARTIFACT_ROOT=artifact_${{ matrix.os }}
+        mkdir ${ARTIFACT_ROOT} 
+        pushd ${ARTIFACT_ROOT}
+        mkdir include && mkdir libs && mkdir tools
+        popd
+        cp include/*.h ${ARTIFACT_ROOT}/include/
+        cp build_release/liblinnecodec.a ${ARTIFACT_ROOT}/libs/
+        cp build_release/liblinnedec.a ${ARTIFACT_ROOT}/libs/
+        cp tools/linne_codec/build/linne ${ARTIFACT_ROOT}/tools/
+        cp tools/linne_player/build/linneplayer ${ARTIFACT_ROOT}/tools/
+        tar -czf ${ARTIFACT_ROOT}.tar.gz ${ARTIFACT_ROOT} 
+
+    - name: Create artifacts on Windows platform
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        $ARTIFACT_ROOT = "artifact_${{ matrix.os }}"
+        mkdir ${ARTIFACT_ROOT} 
+        pushd ${ARTIFACT_ROOT}
+        mkdir include
+        mkdir libs
+        mkdir tools
+        popd
+        cp include/*.h ${ARTIFACT_ROOT}/include/
+        cp build_release/Release/linnecodec.lib ${ARTIFACT_ROOT}/libs/
+        cp build_release/Release/linnedec.lib ${ARTIFACT_ROOT}/libs/
+        cp tools/linne_codec/build/Release/linne.exe ${ARTIFACT_ROOT}/tools/
+        cp tools/linne_player/build/Release/linneplayer.exe ${ARTIFACT_ROOT}/tools/
+        tar -czf "${ARTIFACT_ROOT}.tar.gz" ${ARTIFACT_ROOT} 
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: artifacts
+        path: |
+          artifact_${{ matrix.os }}.tar.gz
