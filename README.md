@@ -16,7 +16,7 @@ aka Soleil Rising Lossless Audio codec
 ## Build SRLA Codec
 
 ```bash
-git clone https://github.com/ShounoLab/SRLA.git
+git clone https://github.com/aikiriao/SRLA.git
 cd SRLA/tools/srla_codec
 cmake -B build
 cmake --build build
