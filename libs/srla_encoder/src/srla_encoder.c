@@ -564,6 +564,8 @@ static double SRLAEncoder_SearchEstimatedBestOrder(
     if (min_len != NULL) {
         (*min_len) = minlen;
     }
+
+    return SRLA_ERROR_OK;
 }
 
 /* 最適なLPC次数の選択 */
