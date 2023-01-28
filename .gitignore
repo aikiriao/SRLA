@@ -1,0 +1,7 @@
+build
+tmp
+data
+*.o
+*.swp
+*.swo
+*~
