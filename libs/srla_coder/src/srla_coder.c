@@ -231,7 +231,7 @@ static void RecursiveRice_GetCode(struct BitStream *stream, uint32_t k1, uint32_
     }
 
     /* ランレングスが1以上ならば改めてランレングス取得 */
-    BitReader_GetZeroRunLength(stream, &quot); 
+    BitReader_GetZeroRunLength(stream, &quot);
     BitReader_GetBits(stream, uval, k2);
     (*uval) += (1U << k1) + (quot << k2);
 }
