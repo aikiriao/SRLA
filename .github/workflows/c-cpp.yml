@@ -48,11 +48,11 @@ jobs:
 
     - name: Build tools
       run: |
-        pushd tools/linne_codec
+        pushd tools/srla_codec
         cmake -B build -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release
         popd
-        pushd tools/linne_player
+        pushd tools/srla_player
         cmake -B build -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release
         popd
@@ -66,10 +66,10 @@ jobs:
         mkdir include && mkdir libs && mkdir tools
         popd
         cp include/*.h ${ARTIFACT_ROOT}/include/
-        cp build_release/liblinnecodec.a ${ARTIFACT_ROOT}/libs/
-        cp build_release/liblinnedec.a ${ARTIFACT_ROOT}/libs/
-        cp tools/linne_codec/build/linne ${ARTIFACT_ROOT}/tools/
-        cp tools/linne_player/build/linneplayer ${ARTIFACT_ROOT}/tools/
+        cp build_release/libsrlacodec.a ${ARTIFACT_ROOT}/libs/
+        cp build_release/libsrladec.a ${ARTIFACT_ROOT}/libs/
+        cp tools/srla_codec/build/srla ${ARTIFACT_ROOT}/tools/
+        cp tools/srla_player/build/srlaplayer ${ARTIFACT_ROOT}/tools/
         tar -czf ${ARTIFACT_ROOT}.tar.gz ${ARTIFACT_ROOT} 
 
     - name: Create artifacts on Windows platform
@@ -84,10 +84,10 @@ jobs:
         mkdir tools
         popd
         cp include/*.h ${ARTIFACT_ROOT}/include/
-        cp build_release/Release/linnecodec.lib ${ARTIFACT_ROOT}/libs/
-        cp build_release/Release/linnedec.lib ${ARTIFACT_ROOT}/libs/
-        cp tools/linne_codec/build/Release/linne.exe ${ARTIFACT_ROOT}/tools/
-        cp tools/linne_player/build/Release/linneplayer.exe ${ARTIFACT_ROOT}/tools/
+        cp build_release/Release/srlacodec.lib ${ARTIFACT_ROOT}/libs/
+        cp build_release/Release/srladec.lib ${ARTIFACT_ROOT}/libs/
+        cp tools/srla_codec/build/Release/srla.exe ${ARTIFACT_ROOT}/tools/
+        cp tools/srla_player/build/Release/srlaplayer.exe ${ARTIFACT_ROOT}/tools/
         tar -czf "${ARTIFACT_ROOT}.tar.gz" ${ARTIFACT_ROOT} 
 
     - name: Upload artifacts
