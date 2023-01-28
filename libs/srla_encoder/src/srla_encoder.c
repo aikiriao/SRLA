@@ -413,9 +413,10 @@ static SRLABlockDataType SRLAEncoder_DecideBlockDataType(
     for (ch = 0; ch < header->num_channels; ch++) {
         double len;
         LPCApiResult ret;
+        const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         /* 入力をdouble化 */
         for (smpl = 0; smpl < num_samples; smpl++) {
-            encoder->buffer_double[smpl] = input[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
+            encoder->buffer_double[smpl] = input[ch][smpl] * norm_const;
         }
         /* 推定符号長計算 */
         ret = LPCCalculator_EstimateCodeLength(encoder->lpcc,
@@ -684,15 +685,16 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
                 /* 各チャンネルの推定符号長を計算 */
                 for (ch = 0; ch < 2; ch++) {
                     /* L,R */
+                    const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
                     for (smpl = 0; smpl < num_samples; smpl++) {
-                        encoder->buffer_double[smpl] = input[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
+                        encoder->buffer_double[smpl] = input[ch][smpl] * norm_const;
                     }
                     SRLAEncoder_SearchEstimatedBestOrder(encoder->lpcc,
                         encoder->buffer_double, num_samples, encoder->parameter_preset->max_num_parameters,
                         header->bits_per_sample, NULL, &est_len[ch]);
                     /* M,S */
                     for (smpl = 0; smpl < num_samples; smpl++) {
-                        encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
+                        encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * norm_const;
                     }
                     SRLAEncoder_SearchEstimatedBestOrder(encoder->lpcc,
                         encoder->buffer_double, num_samples, encoder->parameter_preset->max_num_parameters,
@@ -771,8 +773,9 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         uint32_t smpl, p;
         LPCApiResult ret;
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
+        const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         for (smpl = 0; smpl < num_samples; smpl++) {
-            encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
+            encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * norm_const;
         }
         /* 次数選択 */
         SRLAEncoder_SelectBestLPCOrder(encoder,
