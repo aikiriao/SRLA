@@ -54,10 +54,10 @@ TEST(SRLAEncoderTest, EncodeHeaderTest)
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeHeader(&header, data, sizeof(data)));
 
         /* 簡易チェック */
-        EXPECT_EQ('S', data[0]);
-        EXPECT_EQ('F', data[1]);
-        EXPECT_EQ('L', data[2]);
-        EXPECT_EQ('A', data[3]);
+        EXPECT_EQ('1', data[0]);
+        EXPECT_EQ('2', data[1]);
+        EXPECT_EQ('4', data[2]);
+        EXPECT_EQ('9', data[3]);
     }
 
     /* ヘッダエンコード失敗ケース */
