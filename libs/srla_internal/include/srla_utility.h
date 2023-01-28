@@ -110,20 +110,20 @@ uint32_t SRLAUtility_RoundUp2PoweredSoft(uint32_t val);
 
 /* LR -> MS (in-place) */
 void SRLAUtility_LRtoMSConversion(int32_t **buffer, uint32_t num_samples);
-                                           
+
 /* MS -> LR (in-place) */                  
 void SRLAUtility_MStoLRConversion(int32_t **buffer, uint32_t num_samples);
-                                           
+
 /* LR -> LS (in-place) */                  
 void SRLAUtility_LRtoLSConversion(int32_t **buffer, uint32_t num_samples);
-                                           
+
 /* LS -> LR (in-place) */                  
 void SRLAUtility_LStoLRConversion(int32_t **buffer, uint32_t num_samples);
-                                           
+
 /* LR -> RS (in-place) */                  
 void SRLAUtility_LRtoRSConversion(int32_t **buffer, uint32_t num_samples);
-                                           
-/* RS -> LR (in-place) */                  
+
+/* RS -> LR (in-place) */
 void SRLAUtility_RStoLRConversion(int32_t **buffer, uint32_t num_samples);
 
 /* プリエンファシスフィルタ初期化 */

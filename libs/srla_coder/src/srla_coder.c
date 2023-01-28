@@ -25,7 +25,7 @@
 /* 符号の区別 */
 typedef enum SRLACoderCodeTypeTag {
     SRLACODER_CODE_TYPE_RICE = 0, /* TODO: 将来的にGolombにするべきかも */
-    SRLACODER_CODE_TYPE_RECURSIVE_RICE = 1, 
+    SRLACODER_CODE_TYPE_RECURSIVE_RICE = 1,
     SRLACODER_CODE_TYPE_INVALID
 } SRLACoderCodeType;
 

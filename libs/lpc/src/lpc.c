@@ -81,9 +81,9 @@ int32_t LPCCalculator_CalculateWorkSize(const struct LPCCalculatorConfig *config
     work_size += (int32_t)(sizeof(double *) * (config->max_order + 1));
     work_size += (int32_t)(sizeof(double) * (config->max_order + 1) * (config->max_order + 2));
     /* u, v ベクトル分の領域 */
-    work_size += (int32_t)(sizeof(double) * (config->max_order + 2) * 2); 
+    work_size += (int32_t)(sizeof(double) * (config->max_order + 2) * 2);
     /* 標本自己相関の領域 */
-    work_size += (int32_t)(sizeof(double) * (config->max_order + 1)); 
+    work_size += (int32_t)(sizeof(double) * (config->max_order + 1));
     /* LPC係数ベクトルの領域 */
     work_size += (int32_t)(sizeof(double *) * (config->max_order + 1));
     work_size += (int32_t)(sizeof(double) * (config->max_order + 1) * (config->max_order + 1));
