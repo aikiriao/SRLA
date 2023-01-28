@@ -25,7 +25,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'v', "version", "Show version information",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 0, NULL,  }
+    { 0, }
 };
 
 /* エンコード 成功時は0、失敗時は0以外を返す */
@@ -141,7 +141,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
             progress += num_encode_samples;
 
             /* 進捗表示 */
-            printf("progress... %5.2f%% \r", (progress * 100.0f) / num_samples);
+            printf("progress... %5.2f%% \r", (double)((progress * 100.0) / num_samples));
             fflush(stdout);
         }
 
@@ -158,7 +158,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
 
     /* 圧縮結果サマリの表示 */
     printf("finished: %d -> %d (%6.2f %%) \n",
-            (uint32_t)fstat.st_size, encoded_data_size, 100.f * (double)encoded_data_size / fstat.st_size);
+            (uint32_t)fstat.st_size, encoded_data_size, (double)((100.0 * encoded_data_size) / (double)fstat.st_size));
 
     /* リソース破棄 */
     fclose(out_fp);
