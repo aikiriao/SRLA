@@ -265,6 +265,7 @@ static double SRLACoder_CalculateMeanCodelength(double rho, uint32_t k1, uint32_
     return (1.0 + k1) * (1.0 - fk1) + (1.0 + k2 + (1.0 / (1.0 - fk2))) * fk1;
 }
 
+#if 0
 /* k1に関する偏微分係数の計算 */
 static double SRLACoder_CalculateDiffk1(double rho, double k1, double k2)
 {
@@ -274,13 +275,14 @@ static double SRLACoder_CalculateDiffk1(double rho, double k1, double k2)
     const double fk1d = k1pow * fk1 * log(1.0 - rho) * log(2.0);
     return 1.0 - fk1 + (k2 - k1 + 1.0 / (1.0 - fk2)) * fk1d;
 }
+#endif
 
 /* 最適な符号化パラメータの計算 */
 static void SRLACoder_CalculateOptimalRecursiveRiceParameter(
     const double mean, uint32_t *optk1, uint32_t *optk2, double *bits_per_sample)
 {
     uint32_t k1, k2;
-    double rho, fk1, fk2, bps;
+    double rho, bps;
 #define OPTX 0.5127629514437670454896078808815218508243560791015625 /* (x - 1)^2 + ln(2) x ln(x) = 0 の解 */
 
     /* 幾何分布のパラメータを最尤推定 */
@@ -380,7 +382,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
 
         /* より大きい分割の平均は、小さい分割の平均をマージして計算 */
         for (i = (int32_t)(max_porder - 1); i >= 0; i--) {
-            for (part = 0; part < (1 << i); part++) {
+            for (part = 0; part < (1U << i); part++) {
                 coder->part_mean[i][part] = (coder->part_mean[i + 1][2 * part] + coder->part_mean[i + 1][2 * part + 1]) / 2.0;
             }
         }
@@ -405,7 +407,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                 const uint32_t nsmpl = (num_samples >> porder);
                 uint32_t k, prevk;
                 uint32_t bits = 0;
-                for (part = 0; part < (1 << porder); part++) {
+                for (part = 0; part < (1U << porder); part++) {
                     SRLACoder_CalculateOptimalRiceParameter(coder->part_mean[porder][part], &k, NULL);
                     for (smpl = 0; smpl < nsmpl; smpl++) {
                         bits += Rice_GetCodeLength(k, SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]));
@@ -432,7 +434,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                 const uint32_t nsmpl = (num_samples >> porder);
                 uint32_t k1, k2, prevk2;
                 uint32_t bits = 0;
-                for (part = 0; part < (1 << porder); part++) {
+                for (part = 0; part < (1U << porder); part++) {
                     SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, NULL);
                     for (smpl = 0; smpl < nsmpl; smpl++) {
                         bits += RecursiveRice_GetCodeLength(k1, k2, SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]));
@@ -473,7 +475,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
         case SRLACODER_CODE_TYPE_RICE:
         {
             uint32_t k, prevk;
-            for (part = 0; part < (1 << best_porder); part++) {
+            for (part = 0; part < (1U << best_porder); part++) {
                 SRLACoder_CalculateOptimalRiceParameter(coder->part_mean[best_porder][part], &k, NULL);
                 if (part == 0) {
                     BitWriter_PutBits(stream, k, SRLACODER_RICE_PARAMETER_BITS);
@@ -492,7 +494,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
         case SRLACODER_CODE_TYPE_RECURSIVE_RICE:
         {
             uint32_t k1, k2, prevk2;
-            for (part = 0; part < (1 << best_porder); part++) {
+            for (part = 0; part < (1U << best_porder); part++) {
                 SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[best_porder][part], &k1, &k2, NULL);
                 if (part == 0) {
                     BitWriter_PutBits(stream, k2, SRLACODER_RICE_PARAMETER_BITS);
@@ -529,7 +531,7 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
     case SRLACODER_CODE_TYPE_RICE:
     {
         uint32_t k;
-        for (part = 0; part < (1 << best_porder); part++) {
+        for (part = 0; part < (1U << best_porder); part++) {
             if (part == 0) {
                 BitReader_GetBits(stream, &k, SRLACODER_RICE_PARAMETER_BITS);
             } else {
@@ -546,7 +548,7 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
     case SRLACODER_CODE_TYPE_RECURSIVE_RICE:
     {
         uint32_t k1, k2;
-        for (part = 0; part < (1 << best_porder); part++) {
+        for (part = 0; part < (1U << best_porder); part++) {
             if (part == 0) {
                 BitReader_GetBits(stream, &k2, SRLACODER_RICE_PARAMETER_BITS);
             } else {

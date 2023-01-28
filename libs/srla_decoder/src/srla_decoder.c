@@ -187,14 +187,14 @@ int32_t SRLADecoder_CalculateWorkSize(const struct SRLADecoderConfig *config)
     /* 構造体サイズ（+メモリアラインメント） */
     work_size = sizeof(struct SRLADecoder) + SRLA_MEMORY_ALIGNMENT;
     /* デエンファシスフィルタのサイズ */
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
     /* パラメータ領域 */
     /* LPC係数(int) */
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_parameters);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_parameters);
     /* 各チャンネルのLPC係数右シフト量 */
-    work_size += SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels;
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
     /* 各チャンネルのLPC係数次数 */
-    work_size += SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels;
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
 
     return work_size;
 }
@@ -439,7 +439,7 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
     for (ch = 0; ch < num_channels; ch++) {
         uint32_t uval;
         for (l = 0; l < SRLA_NUM_PREEMPHASIS_FILTERS; l++) {
-            BitReader_GetBits(&reader, &uval, header->bits_per_sample + 1);
+            BitReader_GetBits(&reader, &uval, header->bits_per_sample + 1U);
             decoder->de_emphasis[ch][l].prev = SRLAUTILITY_UINT32_TO_SINT32(uval);
             /* プリエンファシス係数は正値に制限しているため1bitケチれる */
             BitReader_GetBits(&reader, &uval, SRLA_PREEMPHASIS_COEF_SHIFT - 1);

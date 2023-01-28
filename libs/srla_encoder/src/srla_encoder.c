@@ -204,22 +204,22 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     work_size += tmp_work_size;
 
     /* プリエンファシスフィルタのサイズ */
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
     /* パラメータバッファ領域 */
     /* LPC係数(int) */
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_parameters);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_parameters);
     /* LPC係数(double) */
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(double, config->max_num_channels, config->max_num_parameters);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(double, config->max_num_channels, config->max_num_parameters);
     /* 各チャンネルのLPC係数右シフト量 */
-    work_size += SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels;
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
     /* 各チャンネルのLPC係数次数 */
-    work_size += SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels;
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
     /* 信号処理バッファのサイズ */
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block);
-    work_size += config->max_num_samples_per_block * sizeof(double) + SRLA_MEMORY_ALIGNMENT;
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block);
+    work_size += (int32_t)(config->max_num_samples_per_block * sizeof(double) + SRLA_MEMORY_ALIGNMENT);
     /* 残差信号のサイズ */
-    work_size += SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block);
 
     return work_size;
 }
@@ -800,12 +800,12 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
             /* プリエンファシスフィルタのバッファ */
             uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->pre_emphasis_prev[ch][p]);
-            SRLA_ASSERT(uval < (1 << (header->bits_per_sample + 1)));
+            SRLA_ASSERT(uval < (1U << (header->bits_per_sample + 1)));
             BitWriter_PutBits(&writer, uval, header->bits_per_sample + 1);
             /* プリエンファシス係数は正値に制限しているため1bitケチれる */
             SRLA_ASSERT(encoder->pre_emphasis[ch][p].coef >= 0);
             uval = (uint32_t)encoder->pre_emphasis[ch][p].coef;
-            SRLA_ASSERT(uval < (1 << (SRLA_PREEMPHASIS_COEF_SHIFT - 1)));
+            SRLA_ASSERT(uval < (1U << (SRLA_PREEMPHASIS_COEF_SHIFT - 1)));
             BitWriter_PutBits(&writer, uval, SRLA_PREEMPHASIS_COEF_SHIFT - 1);
         }
     }
@@ -814,15 +814,15 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         uint32_t i, uval;
         /* LPC係数次数 */
         SRLA_ASSERT(encoder->coef_order[ch] > 0);
-        SRLA_ASSERT(encoder->coef_order[ch] <= (1 << SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH));
+        SRLA_ASSERT(encoder->coef_order[ch] <= (1U << SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH));
         BitWriter_PutBits(&writer, encoder->coef_order[ch] - 1, SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
         /* LPC係数右シフト量 */
-        SRLA_ASSERT(encoder->rshifts[ch] < (1 << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
+        SRLA_ASSERT(encoder->rshifts[ch] < (1U << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
         BitWriter_PutBits(&writer, encoder->rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
         /* LPC係数 */
         for (i = 0; i < encoder->coef_order[ch]; i++) {
             uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][i]);
-            SRLA_ASSERT(uval < (1 << SRLA_LPC_COEFFICIENT_BITWIDTH));
+            SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
             BitWriter_PutBits(&writer, uval, SRLA_LPC_COEFFICIENT_BITWIDTH);
         }
     }

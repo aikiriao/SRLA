@@ -752,7 +752,7 @@ static LPCError LPC_CalculateCoefAF(
         }
         /* コレスキー分解で r_mat @ avec = r_vec を解く */
         if ((err = LPC_SolveByCholeskyDecomposition(
-                r_mat, (int32_t)coef_order, a_vec, r_vec, lpcc->v_vec)) != LPC_ERROR_OK) {
+                (const double * const *)r_mat, (int32_t)coef_order, a_vec, r_vec, lpcc->v_vec)) != LPC_ERROR_OK) {
             return err;
         }
         assert(err == LPC_ERROR_OK);
@@ -1080,7 +1080,7 @@ static LPCError LPC_CalculateCoefSVR(
             obj_value = LPCSVR_CalculateRGRMeanCodeLength(mabse / num_samples, BITS_PER_SAMPLE);
             /* コレスキー分解で cov @ delta = r_vec を解く */
             if ((err = LPC_SolveByCholeskyDecomposition(
-                    cov, (int32_t)coef_order, delta, r_vec, low)) != LPC_ERROR_OK) {
+                    (const double * const *)cov, (int32_t)coef_order, delta, r_vec, low)) != LPC_ERROR_OK) {
                 return err;
             }
             /* 最善係数の更新 */

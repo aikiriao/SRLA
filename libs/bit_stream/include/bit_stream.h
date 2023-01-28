@@ -268,10 +268,10 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
             assert(((stream)->memory_p + 3) < (stream)->memory_tail);\
             \
             /* メモリに書き出し */\
-            (stream)->memory_p[0] = (((stream)->bit_buffer >> 24) & 0xFF);\
-            (stream)->memory_p[1] = (((stream)->bit_buffer >> 16) & 0xFF);\
-            (stream)->memory_p[2] = (((stream)->bit_buffer >>  8) & 0xFF);\
-            (stream)->memory_p[3] = (((stream)->bit_buffer >>  0) & 0xFF);\
+            (stream)->memory_p[0] = (uint8_t)(((stream)->bit_buffer >> 24) & 0xFF);\
+            (stream)->memory_p[1] = (uint8_t)(((stream)->bit_buffer >> 16) & 0xFF);\
+            (stream)->memory_p[2] = (uint8_t)(((stream)->bit_buffer >>  8) & 0xFF);\
+            (stream)->memory_p[3] = (uint8_t)(((stream)->bit_buffer >>  0) & 0xFF);\
             (stream)->memory_p += 4;\
             \
             /* バッファをリセット */\
@@ -417,22 +417,22 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
                 /* 次のバイト境界まで出力 */\
                 const uint32_t __remainbits = 32 - (stream)->bit_count;\
                 if (__remainbits > 24) {\
-                    (stream)->memory_p[0] = (((stream)->bit_buffer >> 24) & 0xFF);\
-                    (stream)->memory_p[1] = (((stream)->bit_buffer >> 16) & 0xFF);\
-                    (stream)->memory_p[2] = (((stream)->bit_buffer >>  8) & 0xFF);\
-                    (stream)->memory_p[3] = (((stream)->bit_buffer >>  0) & 0xFF);\
+                    (stream)->memory_p[0] = (uint8_t)(((stream)->bit_buffer >> 24) & 0xFF);\
+                    (stream)->memory_p[1] = (uint8_t)(((stream)->bit_buffer >> 16) & 0xFF);\
+                    (stream)->memory_p[2] = (uint8_t)(((stream)->bit_buffer >>  8) & 0xFF);\
+                    (stream)->memory_p[3] = (uint8_t)(((stream)->bit_buffer >>  0) & 0xFF);\
                     (stream)->memory_p += 4;\
                 } else if (__remainbits > 16) {\
-                    (stream)->memory_p[0] = (((stream)->bit_buffer >> 24) & 0xFF);\
-                    (stream)->memory_p[1] = (((stream)->bit_buffer >> 16) & 0xFF);\
-                    (stream)->memory_p[2] = (((stream)->bit_buffer >>  8) & 0xFF);\
+                    (stream)->memory_p[0] = (uint8_t)(((stream)->bit_buffer >> 24) & 0xFF);\
+                    (stream)->memory_p[1] = (uint8_t)(((stream)->bit_buffer >> 16) & 0xFF);\
+                    (stream)->memory_p[2] = (uint8_t)(((stream)->bit_buffer >>  8) & 0xFF);\
                     (stream)->memory_p += 3;\
                 } else if (__remainbits > 8) {\
-                    (stream)->memory_p[0] = (((stream)->bit_buffer >> 24) & 0xFF);\
-                    (stream)->memory_p[1] = (((stream)->bit_buffer >> 16) & 0xFF);\
+                    (stream)->memory_p[0] = (uint8_t)(((stream)->bit_buffer >> 24) & 0xFF);\
+                    (stream)->memory_p[1] = (uint8_t)(((stream)->bit_buffer >> 16) & 0xFF);\
                     (stream)->memory_p += 2;\
                 } else {\
-                    (stream)->memory_p[0] = (((stream)->bit_buffer >> 24) & 0xFF);\
+                    (stream)->memory_p[0] = (uint8_t)(((stream)->bit_buffer >> 24) & 0xFF);\
                     (stream)->memory_p += 1;\
                 }\
                 (stream)->bit_count = 32;\

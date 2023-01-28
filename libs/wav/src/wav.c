@@ -687,7 +687,7 @@ static WAVError WAVWriter_PutWAVPcmData(
     case 16:
         {
             int16_t *buffer;
-            const uint32_t num_output_smpls_per_buffer = WAVBITBUFFER_BUFFER_SIZE / (sizeof(int16_t) * wavfile->format.num_channels);
+            const uint32_t num_output_smpls_per_buffer = (uint32_t)(WAVBITBUFFER_BUFFER_SIZE / (sizeof(int16_t) * wavfile->format.num_channels));
             progress = 0;
             while (progress < wavfile->format.num_samples) {
                 const uint32_t num_process_smpls = WAV_Min(num_output_smpls_per_buffer, wavfile->format.num_samples - progress);
@@ -710,7 +710,7 @@ static WAVError WAVWriter_PutWAVPcmData(
         {
             uint8_t *buffer;
             const size_t int24_size = 3 * sizeof(uint8_t);
-            const uint32_t num_output_smpls_per_buffer = WAVBITBUFFER_BUFFER_SIZE / (int24_size * wavfile->format.num_channels);
+            const uint32_t num_output_smpls_per_buffer = (uint32_t)(WAVBITBUFFER_BUFFER_SIZE / (int24_size * wavfile->format.num_channels));
             progress = 0;
             while (progress < wavfile->format.num_samples) {
                 const uint32_t num_process_smpls = WAV_Min(num_output_smpls_per_buffer, wavfile->format.num_samples - progress);
@@ -736,7 +736,7 @@ static WAVError WAVWriter_PutWAVPcmData(
     case 32:
         {
             int32_t *buffer;
-            const uint32_t num_output_smpls_per_buffer = WAVBITBUFFER_BUFFER_SIZE / (sizeof(int32_t) * wavfile->format.num_channels);
+            const uint32_t num_output_smpls_per_buffer = (uint32_t)(WAVBITBUFFER_BUFFER_SIZE / (sizeof(int32_t) * wavfile->format.num_channels));
             progress = 0;
             while (progress < wavfile->format.num_samples) {
                 const uint32_t num_process_smpls = WAV_Min(num_output_smpls_per_buffer, wavfile->format.num_samples - progress);
