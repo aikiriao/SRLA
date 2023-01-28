@@ -525,6 +525,47 @@ static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint
     return (1.0 + k1) * (1.0 - k1factor) + (1.0 + k2 + (1.0 / (1.0 - k2factor))) * k1factor;
 }
 
+/* Recursive Golomb-Rice符号の平均符号長を元に最適係数次数を探索 */
+static double SRLAEncoder_SearchEstimatedBestOrder(
+    struct LPCCalculator *lpcc, const double *input, uint32_t num_samples, uint32_t max_coef_order,
+    uint32_t bps, uint32_t *best_order, double *min_len)
+{
+    LPCApiResult ret;
+    double minlen, len, mabse;
+    uint32_t order, tmp_best_order = 0;
+    double error_vars[SRLA_MAX_COEFFICIENT_ORDER + 1];
+
+    SRLA_ASSERT(lpcc != NULL);
+    SRLA_ASSERT(input != NULL);
+
+    /* 残差分散の計算 */
+    ret = LPCCalculator_CalculateErrorVariances(lpcc,
+        input, num_samples, error_vars, max_coef_order, LPC_WINDOWTYPE_WELCH, 1e-6);
+    SRLA_ASSERT(ret == LPC_APIRESULT_OK);
+
+    minlen = FLT_MAX;
+    for (order = 1; order <= max_coef_order; order++) {
+        /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
+        mabse = sqrt(error_vars[order] / 2.0);
+        /* 残差符号のサイズ */
+        len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse, bps) * num_samples;
+        /* 係数のサイズ */
+        len += SRLA_LPC_COEFFICIENT_BITWIDTH * order;
+        if (minlen > len) {
+            minlen = len;
+            tmp_best_order = order;
+        }
+    }
+
+    /* 結果を設定 */
+    if (best_order != NULL) {
+        (*best_order) = tmp_best_order;
+    }
+    if (min_len != NULL) {
+        (*min_len) = minlen;
+    }
+}
+
 /* 最適なLPC次数の選択 */
 static SRLAError SRLAEncoder_SelectBestLPCOrder(struct SRLAEncoder *encoder,
     const double *input, uint32_t num_samples, SRLAChannelLPCOrderDecisionTactics tactics,
@@ -583,35 +624,10 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(struct SRLAEncoder *encoder,
     }
     case SRLA_LPC_ORDER_DECISION_TACTICS_BRUTEFORCE_ESTIMATION:
         /* 残差分散の推測による網羅探索 */
-    {
-        LPCApiResult ret;
-        double minlen, len, mabse;
-        uint32_t order, tmp_best_order = 0;
-        double error_vars[SRLA_MAX_COEFFICIENT_ORDER + 1];
-
-        /* 残差分散の計算 */
-        ret = LPCCalculator_CalculateErrorVariances(encoder->lpcc,
-            input, num_samples, error_vars, max_coef_order, LPC_WINDOWTYPE_WELCH, 1e-6);
-        SRLA_ASSERT(ret == LPC_APIRESULT_OK);
-
-        minlen = FLT_MAX;
-        for (order = 1; order <= max_coef_order; order++) {
-            /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
-            mabse = sqrt(error_vars[order] / 2.0);
-            /* 残差符号のサイズ */
-            len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse, encoder->header.bits_per_sample) * num_samples;
-            /* 係数のサイズ */
-            len += SRLA_LPC_COEFFICIENT_BITWIDTH * order;
-            if (minlen > len) {
-                minlen = len;
-                tmp_best_order = order;
-            }
-        }
-        /* 結果を設定 */
-        SRLA_ASSERT(tmp_best_order != 0);
-        (*best_coef_order) = tmp_best_order;
+        SRLAEncoder_SearchEstimatedBestOrder(encoder->lpcc,
+            input, num_samples, max_coef_order, encoder->header.bits_per_sample,
+            best_coef_order, NULL);
         return SRLA_ERROR_OK;
-    }
     default:
         SRLA_ASSERT(0);
     }
@@ -669,16 +685,16 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
                     for (smpl = 0; smpl < num_samples; smpl++) {
                         encoder->buffer_double[smpl] = input[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
                     }
-                    LPCCalculator_EstimateCodeLength(encoder->lpcc,
-                        encoder->buffer_double, num_samples, header->bits_per_sample, encoder->parameter_preset->max_num_parameters,
-                        &est_len[ch], LPC_WINDOWTYPE_WELCH);
+                    SRLAEncoder_SearchEstimatedBestOrder(encoder->lpcc,
+                        encoder->buffer_double, num_samples, encoder->parameter_preset->max_num_parameters,
+                        header->bits_per_sample, NULL, &est_len[ch]);
                     /* M,S */
                     for (smpl = 0; smpl < num_samples; smpl++) {
                         encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
                     }
-                    LPCCalculator_EstimateCodeLength(encoder->lpcc,
-                        encoder->buffer_double, num_samples, header->bits_per_sample, encoder->parameter_preset->max_num_parameters,
-                        &est_len[2 + ch], LPC_WINDOWTYPE_WELCH);
+                    SRLAEncoder_SearchEstimatedBestOrder(encoder->lpcc,
+                        encoder->buffer_double, num_samples, encoder->parameter_preset->max_num_parameters,
+                        header->bits_per_sample, NULL, &est_len[2 + ch]);
                 }
                 /* 最小の符号長を選択 */
                 {
