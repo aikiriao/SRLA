@@ -1,3 +1,8 @@
+![eclint](https://github.com/aikiriao/SRLA/workflows/eclint/badge.svg?branch=main)
+![C/C++ CI](https://github.com/aikiriao/SRLA/workflows/C/C++%20CI/badge.svg?branch=main)
+![Repo size](https://img.shields.io/github/repo-size/aikiriao/SRLA)
+![License](https://img.shields.io/github/license/aikiriao/SRLA)
+
 # SRLA
 
 aka Soleil Rising Lossless Audio codec
