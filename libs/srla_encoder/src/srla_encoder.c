@@ -526,7 +526,7 @@ static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint
 }
 
 /* Recursive Golomb-Rice符号の平均符号長を元に最適係数次数を探索 */
-static double SRLAEncoder_SearchEstimatedBestOrder(
+static SRLAError SRLAEncoder_SearchEstimatedBestOrder(
     struct LPCCalculator *lpcc, const double *input, uint32_t num_samples, uint32_t max_coef_order,
     uint32_t bps, uint32_t *best_order, double *min_len)
 {
