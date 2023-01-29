@@ -77,8 +77,8 @@ SRLAApiResult SRLAEncoder_EncodeHeader(
     if (header->bits_per_sample == 0) {
         return SRLA_APIRESULT_INVALID_FORMAT;
     }
-    /* ブロックあたりサンプル数 */
-    if (header->num_samples_per_block == 0) {
+    /* ブロックあたり最大サンプル数 */
+    if (header->max_num_samples_per_block == 0) {
         return SRLA_APIRESULT_INVALID_FORMAT;
     }
     /* パラメータプリセット */
@@ -108,8 +108,8 @@ SRLAApiResult SRLAEncoder_EncodeHeader(
     ByteArray_PutUint32BE(data_pos, header->sampling_rate);
     /* サンプルあたりビット数 */
     ByteArray_PutUint16BE(data_pos, header->bits_per_sample);
-    /* ブロックあたりサンプル数 */
-    ByteArray_PutUint32BE(data_pos, header->num_samples_per_block);
+    /* ブロックあたり最大サンプル数 */
+    ByteArray_PutUint32BE(data_pos, header->max_num_samples_per_block);
     /* パラメータプリセット */
     ByteArray_PutUint8(data_pos, header->preset);
 
@@ -154,7 +154,7 @@ static SRLAError SRLAEncoder_ConvertParameterToHeader(
     tmp_header.sampling_rate = parameter->sampling_rate;
     tmp_header.bits_per_sample = parameter->bits_per_sample;
     tmp_header.preset = parameter->preset;
-    tmp_header.num_samples_per_block = parameter->num_samples_per_block;
+    tmp_header.max_num_samples_per_block = parameter->max_num_samples_per_block;
 
     /* 成功終了 */
     (*header) = tmp_header;
@@ -374,12 +374,12 @@ SRLAApiResult SRLAEncoder_SetEncodeParameter(
     }
 
     /* エンコーダの容量を越えてないかチェック */
-    if ((encoder->max_num_samples_per_block < parameter->num_samples_per_block)
+    if ((encoder->max_num_samples_per_block < parameter->max_num_samples_per_block)
         || (encoder->max_num_channels < parameter->num_channels)) {
         return SRLA_APIRESULT_INSUFFICIENT_BUFFER;
     }
-    /* ブロックあたりサンプル数のセット */
-    tmp_header.num_samples_per_block = parameter->num_samples_per_block;
+    /* ブロックあたり最大サンプル数のセット */
+    tmp_header.max_num_samples_per_block = parameter->max_num_samples_per_block;
 
     /* ヘッダ設定 */
     encoder->header = tmp_header;
@@ -890,7 +890,7 @@ SRLAApiResult SRLAEncoder_EncodeBlock(
     }
 
     /* エンコードサンプル数チェック */
-    if (num_samples > header->num_samples_per_block) {
+    if (num_samples > header->max_num_samples_per_block) {
         return SRLA_APIRESULT_INSUFFICIENT_BUFFER;
     }
 
@@ -1000,7 +1000,7 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
 
         /* エンコードサンプル数の確定 */
         num_encode_samples
-            = SRLAUTILITY_MIN(header->num_samples_per_block, num_samples - progress);
+            = SRLAUTILITY_MIN(header->max_num_samples_per_block, num_samples - progress);
 
         /* サンプル参照位置のセット */
         for (ch = 0; ch < header->num_channels; ch++) {

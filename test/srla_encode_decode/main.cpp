@@ -242,7 +242,7 @@ static int32_t SRLAEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTes
     /* エンコード・デコードコンフィグ作成 */
     /* FIXME: 仮値 */
     encoder_config.max_num_channels          = num_channels;
-    encoder_config.max_num_samples_per_block = test_case->encode_parameter.num_samples_per_block;
+    encoder_config.max_num_samples_per_block = test_case->encode_parameter.max_num_samples_per_block;
     encoder_config.max_num_parameters        = 32;
     decoder_config.max_num_channels          = num_channels;
     decoder_config.max_num_parameters        = 32;

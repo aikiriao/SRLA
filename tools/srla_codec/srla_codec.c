@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 /* デフォルトのブロックサンプル数 */
-#define DEFALUT_NUM_BLOCK_SAMPLES 4096
+#define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
 #define PRE_TOSTRING(arg) #arg
 #define TOSTRING(arg) PRE_TOSTRING(arg)
 
@@ -24,7 +24,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'm', "mode", "Specify compress mode: 0(fast), ..., 3(high compression) (default:0)",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'b', "block-size", "Specify number of block samples (default:" TOSTRING(DEFALUT_NUM_BLOCK_SAMPLES) ")",
+    { 'b', "max-block-size", "Specify max number of block samples (default:" TOSTRING(DEFALUT_MAX_NUM_BLOCK_SAMPLES) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'c', "no-checksum-check", "Whether to NOT check checksum at decoding (default:no)",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
@@ -36,7 +36,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
 };
 
 /* エンコード 成功時は0、失敗時は0以外を返す */
-static int do_encode(const char *in_filename, const char *out_filename, uint32_t encode_preset_no, uint32_t num_block_samples)
+static int do_encode(const char *in_filename, const char *out_filename, uint32_t encode_preset_no, uint32_t max_num_block_samples)
 {
     FILE *out_fp;
     struct WAVFile *in_wav;
@@ -52,7 +52,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
 
     /* エンコーダ作成 */
     config.max_num_channels = SRLA_MAX_NUM_CHANNELS;
-    config.max_num_samples_per_block = num_block_samples;
+    config.max_num_samples_per_block = max_num_block_samples;
     config.max_num_parameters = SRLA_MAX_COEFFICIENT_ORDER;
     if ((encoder = SRLAEncoder_Create(&config, NULL, 0)) == NULL) {
         fprintf(stderr, "Failed to create encoder handle. \n");
@@ -71,7 +71,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
     parameter.num_channels = (uint16_t)num_channels;
     parameter.bits_per_sample = (uint16_t)in_wav->format.bits_per_sample;
     parameter.sampling_rate = in_wav->format.sampling_rate;
-    parameter.num_samples_per_block = num_block_samples;
+    parameter.max_num_samples_per_block = max_num_block_samples;
     /* プリセットの反映 */
     parameter.preset = (uint8_t)encode_preset_no;
     if ((ret = SRLAEncoder_SetEncodeParameter(encoder, &parameter)) != SRLA_APIRESULT_OK) {
@@ -111,7 +111,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
         header.sampling_rate = parameter.sampling_rate;
         header.bits_per_sample = parameter.bits_per_sample;
         header.preset = parameter.preset;
-        header.num_samples_per_block = parameter.num_samples_per_block;
+        header.max_num_samples_per_block = parameter.max_num_samples_per_block;
         if ((ret = SRLAEncoder_EncodeHeader(&header, data_pos, buffer_size))
                 != SRLA_APIRESULT_OK) {
             fprintf(stderr, "Failed to encode header! ret:%d \n", ret);
@@ -126,7 +126,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
             uint32_t ch, write_size;
             const int32_t *input_ptr[SRLA_MAX_NUM_CHANNELS];
             /* エンコードサンプル数の確定 */
-            const uint32_t num_encode_samples = SRLACODEC_MIN(num_block_samples, num_samples - progress);
+            const uint32_t num_encode_samples = SRLACODEC_MIN(max_num_block_samples, num_samples - progress);
 
             /* サンプル参照位置のセット */
             for (ch = 0; ch < (uint32_t)num_channels; ch++) {
@@ -337,7 +337,7 @@ int main(int argc, char** argv)
     } else if (CommandLineParser_GetOptionAcquired(command_line_spec, "encode") == COMMAND_LINE_PARSER_TRUE) {
         /* エンコード */
         uint32_t encode_preset_no = 0;
-        uint32_t num_block_samples = DEFALUT_NUM_BLOCK_SAMPLES;
+        uint32_t max_num_block_samples = DEFALUT_MAX_NUM_BLOCK_SAMPLES;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
@@ -353,21 +353,21 @@ int main(int argc, char** argv)
             }
         }
         /* ブロックあたりサンプル数の取得 */
-        if (CommandLineParser_GetOptionAcquired(command_line_spec, "block-size") == COMMAND_LINE_PARSER_TRUE) {
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "max-block-size") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
             const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "block-size");
-            num_block_samples = (uint32_t)strtol(lstr, &e, 10);
+            max_num_block_samples = (uint32_t)strtol(lstr, &e, 10);
             if (*e != '\0') {
                 fprintf(stderr, "%s: invalid number of block samples. (irregular character found in %s at %s)\n", argv[0], lstr, e);
                 return 1;
             }
-            if ((num_block_samples == 0) || (num_block_samples >= (1U << 16))) {
+            if ((max_num_block_samples == 0) || (max_num_block_samples >= (1U << 16))) {
                 fprintf(stderr, "%s: number of block samples is out of range. \n", argv[0]);
                 return 1;
             }
         }
         /* 一括エンコード実行 */
-        if (do_encode(input_file, output_file, encode_preset_no, num_block_samples) != 0) {
+        if (do_encode(input_file, output_file, encode_preset_no, max_num_block_samples) != 0) {
             fprintf(stderr, "%s: failed to encode %s. \n", argv[0], input_file);
             return 1;
         }

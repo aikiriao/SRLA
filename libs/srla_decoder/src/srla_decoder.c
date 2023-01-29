@@ -109,9 +109,9 @@ SRLAApiResult SRLADecoder_DecodeHeader(
     /* サンプルあたりビット数 */
     ByteArray_GetUint16BE(data_pos, &u16buf);
     tmp_header.bits_per_sample = u16buf;
-    /* ブロックあたりサンプル数 */
+    /* ブロックあたり最大サンプル数 */
     ByteArray_GetUint32BE(data_pos, &u32buf);
-    tmp_header.num_samples_per_block = u32buf;
+    tmp_header.max_num_samples_per_block = u32buf;
     /* パラメータプリセット */
     ByteArray_GetUint8(data_pos, &u8buf);
     tmp_header.preset = u8buf;
@@ -156,8 +156,8 @@ static SRLAError SRLADecoder_CheckHeaderFormat(const struct SRLAHeader *header)
     if (header->bits_per_sample == 0) {
         return SRLA_ERROR_INVALID_FORMAT;
     }
-    /* ブロックあたりサンプル数 */
-    if (header->num_samples_per_block == 0) {
+    /* ブロックあたり最大サンプル数 */
+    if (header->max_num_samples_per_block == 0) {
         return SRLA_ERROR_INVALID_FORMAT;
     }
     /* パラメータプリセット */

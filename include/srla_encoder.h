@@ -9,7 +9,7 @@ struct SRLAEncodeParameter {
     uint16_t num_channels; /* 入力波形のチャンネル数 */
     uint16_t bits_per_sample; /* 入力波形のサンプルあたりビット数 */
     uint32_t sampling_rate; /* 入力波形のサンプリングレート */
-    uint32_t num_samples_per_block; /* ブロックあたりサンプル数 */
+    uint32_t max_num_samples_per_block; /* ブロックあたり最大サンプル数 */
     uint8_t preset; /* エンコードパラメータプリセット */
 };
 

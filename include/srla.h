@@ -42,7 +42,7 @@ struct SRLAHeader {
     uint32_t num_samples;                           /* 1チャンネルあたり総サンプル数  */
     uint32_t sampling_rate;                         /* サンプリングレート             */
     uint16_t bits_per_sample;                       /* サンプルあたりビット数         */
-    uint32_t num_samples_per_block;                 /* ブロックあたりサンプル数   */
+    uint32_t max_num_samples_per_block;             /* ブロックあたり最大サンプル数   */
     uint8_t preset;                                 /* パラメータプリセット         */
 };
 

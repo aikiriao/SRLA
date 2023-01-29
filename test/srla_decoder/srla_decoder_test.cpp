@@ -13,15 +13,15 @@ extern "C" {
 /* 有効なヘッダをセット */
 #define SRLA_SetValidHeader(p_header)\
     do {\
-        struct SRLAHeader *header__p       = p_header;\
-        header__p->format_version           = SRLA_FORMAT_VERSION;\
-        header__p->codec_version            = SRLA_CODEC_VERSION;\
-        header__p->num_channels             = 1;\
-        header__p->sampling_rate            = 44100;\
-        header__p->bits_per_sample          = 16;\
-        header__p->num_samples              = 8192;\
-        header__p->num_samples_per_block    = 1024;\
-        header__p->preset                   = 0;\
+        struct SRLAHeader *header__p            = p_header;\
+        header__p->format_version               = SRLA_FORMAT_VERSION;\
+        header__p->codec_version                = SRLA_CODEC_VERSION;\
+        header__p->num_channels                 = 1;\
+        header__p->sampling_rate                = 44100;\
+        header__p->bits_per_sample              = 16;\
+        header__p->num_samples                  = 8192;\
+        header__p->max_num_samples_per_block    = 1024;\
+        header__p->preset                       = 0;\
     } while (0);
 
 /* ヘッダにある情報からエンコードパラメータを作成 */
@@ -32,7 +32,7 @@ extern "C" {
         param__p->num_channels = header__p->num_channels;\
         param__p->sampling_rate = header__p->sampling_rate;\
         param__p->bits_per_sample = header__p->bits_per_sample;\
-        param__p->num_samples_per_block = header__p->num_samples_per_block;\
+        param__p->max_num_samples_per_block = header__p->max_num_samples_per_block;\
         param__p->preset = header__p->preset;\
     } while (0);
 
@@ -86,7 +86,7 @@ TEST(SRLADecoderTest, DecodeHeaderTest)
         EXPECT_EQ(header.sampling_rate, tmp_header.sampling_rate);
         EXPECT_EQ(header.bits_per_sample, tmp_header.bits_per_sample);
         EXPECT_EQ(header.num_samples, tmp_header.num_samples);
-        EXPECT_EQ(header.num_samples_per_block, tmp_header.num_samples_per_block);
+        EXPECT_EQ(header.max_num_samples_per_block, tmp_header.max_num_samples_per_block);
         EXPECT_EQ(header.preset, tmp_header.preset);
     }
 
@@ -162,7 +162,7 @@ TEST(SRLADecoderTest, DecodeHeaderTest)
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLADecoder_DecodeHeader(data, sizeof(data), &getheader));
         EXPECT_EQ(SRLA_ERROR_INVALID_FORMAT, SRLADecoder_CheckHeaderFormat(&getheader));
 
-        /* 異常なブロックあたりサンプル数 */
+        /* 異常なブロックあたり最大サンプル数 */
         memcpy(data, valid_data, sizeof(valid_data));
         memset(&getheader, 0xCD, sizeof(getheader));
         ByteArray_WriteUint32BE(&data[24], 0);
@@ -322,12 +322,12 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         SRLADecoder_SetValidConfig(&config);
 
         /* 十分なデータサイズ */
-        sufficient_size = (2 * header.num_channels * header.num_samples_per_block * header.bits_per_sample) / 8;
+        sufficient_size = (2 * header.num_channels * header.max_num_samples_per_block * header.bits_per_sample) / 8;
 
         /* データ領域確保 */
         data = (uint8_t *)malloc(sufficient_size);
         for (ch = 0; ch < header.num_channels; ch++) {
-            output[ch] = (int32_t *)malloc(sizeof(int32_t) * header.num_samples_per_block);
+            output[ch] = (int32_t *)malloc(sizeof(int32_t) * header.max_num_samples_per_block);
         }
 
         /* デコーダ作成 */
@@ -336,7 +336,7 @@ TEST(SRLADecoderTest, DecodeBlockTest)
 
         /* ヘッダセット前にデコーダしようとする */
         EXPECT_EQ(SRLA_APIRESULT_PARAMETER_NOT_SET,
-                SRLADecoder_DecodeBlock(decoder, data, sufficient_size, output, header.num_channels, header.num_samples_per_block, &output_size, &out_num_samples));
+                SRLADecoder_DecodeBlock(decoder, data, sufficient_size, output, header.num_channels, header.max_num_samples_per_block, &output_size, &out_num_samples));
 
         /* ヘッダをセット */
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLADecoder_SetHeader(decoder, &header));
@@ -367,13 +367,13 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         SRLADecoder_SetValidConfig(&decoder_config);
 
         /* 十分なデータサイズ */
-        sufficient_size = (2 * header.num_channels * header.num_samples_per_block * header.bits_per_sample) / 8;
+        sufficient_size = (2 * header.num_channels * header.max_num_samples_per_block * header.bits_per_sample) / 8;
 
         /* データ領域確保 */
         data = (uint8_t *)malloc(sufficient_size);
         for (ch = 0; ch < header.num_channels; ch++) {
-            input[ch] = (int32_t *)malloc(sizeof(int32_t) * header.num_samples_per_block);
-            output[ch] = (int32_t *)malloc(sizeof(int32_t) * header.num_samples_per_block);
+            input[ch] = (int32_t *)malloc(sizeof(int32_t) * header.max_num_samples_per_block);
+            output[ch] = (int32_t *)malloc(sizeof(int32_t) * header.max_num_samples_per_block);
         }
 
         /* エンコーダデコーダ作成 */
@@ -384,7 +384,7 @@ TEST(SRLADecoderTest, DecodeBlockTest)
 
         /* 入力に無音セット */
         for (ch = 0; ch < header.num_channels; ch++) {
-            memset(input[ch], 0, sizeof(int32_t) * header.num_samples_per_block);
+            memset(input[ch], 0, sizeof(int32_t) * header.max_num_samples_per_block);
         }
 
         /* ヘッダを元にパラメータを設定 */
@@ -393,7 +393,7 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         /* 入力データをエンコード */
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_SetEncodeParameter(encoder, &parameter));
         EXPECT_EQ(SRLA_APIRESULT_OK,
-                SRLAEncoder_EncodeWhole(encoder, input, header.num_samples_per_block, data, sufficient_size, &output_size));
+                SRLAEncoder_EncodeWhole(encoder, input, header.max_num_samples_per_block, data, sufficient_size, &output_size));
 
         /* エンコードデータを簡易チェック */
         EXPECT_TRUE(output_size > SRLA_HEADER_SIZE);
@@ -404,13 +404,13 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLADecoder_SetHeader(decoder, &tmp_header));
         EXPECT_EQ(SRLA_APIRESULT_OK,
                 SRLADecoder_DecodeBlock(decoder, data + SRLA_HEADER_SIZE, output_size - SRLA_HEADER_SIZE,
-                    output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                    output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
 
         /* 出力チェック */
         EXPECT_EQ(output_size - SRLA_HEADER_SIZE, decode_output_size);
-        EXPECT_EQ(header.num_samples_per_block, out_num_samples);
+        EXPECT_EQ(header.max_num_samples_per_block, out_num_samples);
         for (ch = 0; ch < header.num_channels; ch++) {
-            EXPECT_EQ(0, memcmp(input[ch], output[ch], sizeof(int32_t) * header.num_samples_per_block));
+            EXPECT_EQ(0, memcmp(input[ch], output[ch], sizeof(int32_t) * header.max_num_samples_per_block));
         }
 
         /* 領域の開放 */
@@ -441,13 +441,13 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         SRLADecoder_SetValidConfig(&decoder_config);
 
         /* 十分なデータサイズ */
-        sufficient_size = (2 * header.num_channels * header.num_samples_per_block * header.bits_per_sample) / 8;
+        sufficient_size = (2 * header.num_channels * header.max_num_samples_per_block * header.bits_per_sample) / 8;
 
         /* データ領域確保 */
         data = (uint8_t *)malloc(sufficient_size);
         for (ch = 0; ch < header.num_channels; ch++) {
-            input[ch] = (int32_t *)malloc(sizeof(int32_t) * header.num_samples_per_block);
-            output[ch] = (int32_t *)malloc(sizeof(int32_t) * header.num_samples_per_block);
+            input[ch] = (int32_t *)malloc(sizeof(int32_t) * header.max_num_samples_per_block);
+            output[ch] = (int32_t *)malloc(sizeof(int32_t) * header.max_num_samples_per_block);
         }
 
         /* エンコーダデコーダ作成 */
@@ -458,7 +458,7 @@ TEST(SRLADecoderTest, DecodeBlockTest)
 
         /* 入力に無音セット */
         for (ch = 0; ch < header.num_channels; ch++) {
-            memset(input[ch], 0, sizeof(int32_t) * header.num_samples_per_block);
+            memset(input[ch], 0, sizeof(int32_t) * header.max_num_samples_per_block);
         }
 
         /* ヘッダを元にパラメータを設定 */
@@ -466,7 +466,7 @@ TEST(SRLADecoderTest, DecodeBlockTest)
 
         /* 入力データをエンコード */
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_SetEncodeParameter(encoder, &parameter));
-        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.num_samples_per_block, data, sufficient_size, &output_size));
+        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.max_num_samples_per_block, data, sufficient_size, &output_size));
 
         /* エンコードデータを簡易チェック */
         EXPECT_TRUE(output_size > SRLA_HEADER_SIZE);
@@ -478,52 +478,52 @@ TEST(SRLADecoderTest, DecodeBlockTest)
 
         /* 不正な引数 */
         EXPECT_EQ(SRLA_APIRESULT_INVALID_ARGUMENT,
-                SRLADecoder_DecodeBlock(NULL, data, output_size, output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                SRLADecoder_DecodeBlock(NULL, data, output_size, output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
         EXPECT_EQ(SRLA_APIRESULT_INVALID_ARGUMENT,
-                SRLADecoder_DecodeBlock(decoder, NULL, output_size, output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                SRLADecoder_DecodeBlock(decoder, NULL, output_size, output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
         EXPECT_EQ(SRLA_APIRESULT_INVALID_ARGUMENT,
-                SRLADecoder_DecodeBlock(decoder, data, output_size, NULL, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                SRLADecoder_DecodeBlock(decoder, data, output_size, NULL, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
         EXPECT_EQ(SRLA_APIRESULT_INVALID_ARGUMENT,
-                SRLADecoder_DecodeBlock(decoder, data, output_size, output, header.num_channels, tmp_header.num_samples_per_block, NULL, &out_num_samples));
+                SRLADecoder_DecodeBlock(decoder, data, output_size, output, header.num_channels, tmp_header.max_num_samples_per_block, NULL, &out_num_samples));
         EXPECT_EQ(SRLA_APIRESULT_INVALID_ARGUMENT,
-                SRLADecoder_DecodeBlock(decoder, data, output_size, output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, NULL));
+                SRLADecoder_DecodeBlock(decoder, data, output_size, output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, NULL));
 
         /* データサイズ不足 */
         EXPECT_EQ(SRLA_APIRESULT_INSUFFICIENT_DATA,
                 SRLADecoder_DecodeBlock(decoder, data + SRLA_HEADER_SIZE, output_size - SRLA_HEADER_SIZE - 1,
-                    output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                    output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
 
         /* データを一部破壊した場合にエラーを返すか */
 
         /* 同期コード（データ先頭16bit）破壊 */
-        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.num_samples_per_block, data, sufficient_size, &output_size));
+        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.max_num_samples_per_block, data, sufficient_size, &output_size));
         data[SRLA_HEADER_SIZE] ^= 0xFF;
         EXPECT_EQ(SRLA_APIRESULT_INVALID_FORMAT,
                 SRLADecoder_DecodeBlock(decoder, data + SRLA_HEADER_SIZE, output_size - SRLA_HEADER_SIZE,
-                    output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
-        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.num_samples_per_block, data, sufficient_size, &output_size));
+                    output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
+        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.max_num_samples_per_block, data, sufficient_size, &output_size));
         data[SRLA_HEADER_SIZE + 1] ^= 0xFF;
         EXPECT_EQ(SRLA_APIRESULT_INVALID_FORMAT,
                 SRLADecoder_DecodeBlock(decoder, data + SRLA_HEADER_SIZE, output_size - SRLA_HEADER_SIZE,
-                    output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                    output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
         /* ブロックデータタイプ不正: データ破損検知 */
-        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.num_samples_per_block, data, sufficient_size, &output_size));
+        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.max_num_samples_per_block, data, sufficient_size, &output_size));
         data[SRLA_HEADER_SIZE + 8] = 0xC0;
         EXPECT_EQ(SRLA_APIRESULT_DETECT_DATA_CORRUPTION,
                 SRLADecoder_DecodeBlock(decoder, data + SRLA_HEADER_SIZE, output_size - SRLA_HEADER_SIZE,
-                    output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                    output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
         /* ブロックチャンネルあたりサンプル数不正: データ破損検知 */
-        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.num_samples_per_block, data, sufficient_size, &output_size));
+        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.max_num_samples_per_block, data, sufficient_size, &output_size));
         data[SRLA_HEADER_SIZE + 9] ^= 0xFF;
         EXPECT_EQ(SRLA_APIRESULT_DETECT_DATA_CORRUPTION,
                 SRLADecoder_DecodeBlock(decoder, data + SRLA_HEADER_SIZE, output_size - SRLA_HEADER_SIZE,
-                    output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                    output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
         /* データの末尾1byteがビット反転: データ破損検知 */
-        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.num_samples_per_block, data, sufficient_size, &output_size));
+        EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_EncodeWhole(encoder, input, header.max_num_samples_per_block, data, sufficient_size, &output_size));
         data[output_size - 1] ^= 0xEF; /* note: Fletcherは0xFFのビット反転の破損を検知できない（mod 255の都合上） */
         EXPECT_EQ(SRLA_APIRESULT_DETECT_DATA_CORRUPTION,
                 SRLADecoder_DecodeBlock(decoder, data + SRLA_HEADER_SIZE, output_size - SRLA_HEADER_SIZE,
-                    output, header.num_channels, tmp_header.num_samples_per_block, &decode_output_size, &out_num_samples));
+                    output, header.num_channels, tmp_header.max_num_samples_per_block, &decode_output_size, &out_num_samples));
 
         /* 領域の開放 */
         for (ch = 0; ch < header.num_channels; ch++) {
