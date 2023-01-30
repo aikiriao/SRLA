@@ -33,8 +33,10 @@ void SRLALPC_Synthesize(
 #else
 #ifdef _MSC_VER
 #include <intrin.h>
+#define DECLALIGN(x) __declspec(align(x))
 #else
 #include <x86intrin.h>
+#define DECLALIGN(x) __attribute__((aligned(x)))
 #endif
 void SRLALPC_Synthesize(
     int32_t *data, uint32_t num_samples,
@@ -67,7 +69,7 @@ void SRLALPC_Synthesize(
                 predict[3] += (coef[ord] * data[smpl - coef_order + ord + 3]);
             }
             */
-            __declspec(align(16)) int32_t predict[4];
+            DECLALIGN(16) int32_t predict[4];
             __m128i vdata;
             __m128i vpred = _mm_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 3 - 4; ord += 4) {
