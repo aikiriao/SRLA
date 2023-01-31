@@ -8,8 +8,11 @@
 #include <string.h>
 #include <sys/stat.h>
 
-/* デフォルトのブロックサンプル数 */
+/* デフォルトプリセット */
+#define DEFALUT_PRESET_NO 2
+/* デフォルトの最大ブロックサンプル数 */
 #define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
+/* マクロの内容を文字列化 */
 #define PRE_TOSTRING(arg) #arg
 #define TOSTRING(arg) PRE_TOSTRING(arg)
 
@@ -22,7 +25,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'd', "decode", "Decode mode",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'm', "mode", "Specify compress mode: 0(fast), ..., 3(high compression) (default:0)",
+    { 'm', "mode", "Specify compress mode: 0(fast), ..., 5(high compression) (default:" TOSTRING(DEFALUT_PRESET_NO) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'b', "max-block-size", "Specify max number of block samples (default:" TOSTRING(DEFALUT_MAX_NUM_BLOCK_SAMPLES) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
@@ -336,7 +339,7 @@ int main(int argc, char** argv)
         }
     } else if (CommandLineParser_GetOptionAcquired(command_line_spec, "encode") == COMMAND_LINE_PARSER_TRUE) {
         /* エンコード */
-        uint32_t encode_preset_no = 0;
+        uint32_t encode_preset_no = DEFALUT_PRESET_NO;
         uint32_t max_num_block_samples = DEFALUT_MAX_NUM_BLOCK_SAMPLES;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
