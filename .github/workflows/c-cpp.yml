@@ -28,7 +28,7 @@ jobs:
 
     - name: Preparation on Windows
       if: runner.os == 'Windows'
-      uses: microsoft/setup-msbuild@v1.0.2
+      uses: microsoft/setup-msbuild@v1.1
 
     - name: Build libraries
       run: |
@@ -91,7 +91,7 @@ jobs:
         tar -czf "${ARTIFACT_ROOT}.tar.gz" ${ARTIFACT_ROOT} 
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: artifacts
         path: |
