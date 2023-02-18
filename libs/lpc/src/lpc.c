@@ -1016,7 +1016,7 @@ static LPCError LPC_CalculateCoefSVR(
     }
 
     /* Levinson-Durbin法で係数を求める */
-    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, 0.0)) != LPC_ERROR_OK) {
+    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, regular_term)) != LPC_ERROR_OK) {
         return err;
     }
     /* 0次自己相関（信号の二乗和）が小さい場合
@@ -1039,7 +1039,7 @@ static LPCError LPC_CalculateCoefSVR(
     }
     /* Ridge正則化 */
     for (i = 0; i < coef_order; i++) {
-        cov[i][i] += regular_term;
+        cov[i][i] *= (1.0 + regular_term);
     }
     /* コレスキー分解 */
     if ((err = LPC_CholeskyDecomposition(cov, (int32_t)coef_order, low)) == LPC_ERROR_SINGULAR_MATRIX) {
