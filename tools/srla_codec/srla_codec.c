@@ -372,7 +372,7 @@ int main(int argc, char** argv)
         /* ブロックあたりサンプル数の取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "max-block-size") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
-            const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "block-size");
+            const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "max-block-size");
             max_num_block_samples = (uint32_t)strtol(lstr, &e, 10);
             if (*e != '\0') {
                 fprintf(stderr, "%s: invalid number of block samples. (irregular character found in %s at %s)\n", argv[0], lstr, e);
