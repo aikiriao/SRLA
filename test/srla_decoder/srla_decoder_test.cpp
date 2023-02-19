@@ -24,18 +24,6 @@ extern "C" {
         header__p->preset                       = 0;\
     } while (0);
 
-/* ヘッダにある情報からエンコードパラメータを作成 */
-#define SRLAEncoder_ConvertHeaderToParameter(p_header, p_parameter)\
-    do {\
-        const struct SRLAHeader *header__p = p_header;\
-        struct SRLAEncodeParameter *param__p = p_parameter;\
-        param__p->num_channels = header__p->num_channels;\
-        param__p->sampling_rate = header__p->sampling_rate;\
-        param__p->bits_per_sample = header__p->bits_per_sample;\
-        param__p->max_num_samples_per_block = header__p->max_num_samples_per_block;\
-        param__p->preset = header__p->preset;\
-    } while (0);
-
 /* 有効なエンコードパラメータをセット */
 #define SRLAEncoder_SetValidEncodeParameter(p_parameter)\
     do {\
@@ -43,8 +31,8 @@ extern "C" {
         param__p->num_channels          = 1;\
         param__p->bits_per_sample       = 16;\
         param__p->sampling_rate         = 44100;\
-        param__p->min_num_samples_per_block = 512;\
-        param__p->max_num_samples_per_block = 1024;\
+        param__p->min_num_samples_per_block = 1024;\
+        param__p->max_num_samples_per_block = 2048;\
         param__p->preset                = 0;\
     } while (0);
 
@@ -53,7 +41,7 @@ extern "C" {
     do {\
         struct SRLAEncoderConfig *config__p = p_config;\
         config__p->max_num_channels          = 8;\
-        config__p->min_num_samples_per_block = 1024;\
+        config__p->min_num_samples_per_block = 512;\
         config__p->max_num_samples_per_block = 4096;\
         config__p->max_num_parameters        = 32;\
     } while (0);
@@ -367,6 +355,7 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         SRLA_SetValidHeader(&header);
         SRLAEncoder_SetValidConfig(&encoder_config);
         SRLADecoder_SetValidConfig(&decoder_config);
+        SRLAEncoder_SetValidEncodeParameter(&parameter);
 
         /* 十分なデータサイズ */
         sufficient_size = (2 * header.num_channels * header.max_num_samples_per_block * header.bits_per_sample) / 8;
@@ -388,9 +377,6 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         for (ch = 0; ch < header.num_channels; ch++) {
             memset(input[ch], 0, sizeof(int32_t) * header.max_num_samples_per_block);
         }
-
-        /* ヘッダを元にパラメータを設定 */
-        SRLAEncoder_ConvertHeaderToParameter(&header, &parameter);
 
         /* 入力データをエンコード */
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_SetEncodeParameter(encoder, &parameter));
@@ -441,6 +427,7 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         SRLA_SetValidHeader(&header);
         SRLAEncoder_SetValidConfig(&encoder_config);
         SRLADecoder_SetValidConfig(&decoder_config);
+        SRLAEncoder_SetValidEncodeParameter(&parameter);
 
         /* 十分なデータサイズ */
         sufficient_size = (2 * header.num_channels * header.max_num_samples_per_block * header.bits_per_sample) / 8;
@@ -462,9 +449,6 @@ TEST(SRLADecoderTest, DecodeBlockTest)
         for (ch = 0; ch < header.num_channels; ch++) {
             memset(input[ch], 0, sizeof(int32_t) * header.max_num_samples_per_block);
         }
-
-        /* ヘッダを元にパラメータを設定 */
-        SRLAEncoder_ConvertHeaderToParameter(&header, &parameter);
 
         /* 入力データをエンコード */
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLAEncoder_SetEncodeParameter(encoder, &parameter));
