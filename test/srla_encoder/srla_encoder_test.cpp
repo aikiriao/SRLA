@@ -442,7 +442,7 @@ TEST(SRLAEncoderTest, DijkstraTest)
     };
 
     /* ダイクストラ法のテストケース */
-    typedef struct DijkstraTestCase {
+    struct DijkstraTestCase {
         uint32_t num_nodes;
         uint32_t start_node;
         uint32_t goal_node;

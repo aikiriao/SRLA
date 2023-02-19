@@ -153,13 +153,13 @@ static int32_t SRLAOptimalBlockPartitionCalculator_CalculateWorkSize(
     work_size = sizeof(struct SRLAOptimalBlockPartitionCalculator) + SRLA_MEMORY_ALIGNMENT;
 
     /* 隣接行列 */
-    work_size += (sizeof(double *) + (sizeof(double) * max_num_nodes) + SRLA_MEMORY_ALIGNMENT) * max_num_nodes;
+    work_size += (int32_t)((sizeof(double *) + (sizeof(double) * max_num_nodes) + SRLA_MEMORY_ALIGNMENT) * max_num_nodes);
     /* コスト配列 */
-    work_size += sizeof(double) * max_num_nodes + SRLA_MEMORY_ALIGNMENT;
+    work_size += (int32_t)(sizeof(double) * max_num_nodes + SRLA_MEMORY_ALIGNMENT);
     /* 経路情報 */
-    work_size += sizeof(uint32_t) * max_num_nodes + SRLA_MEMORY_ALIGNMENT;
+    work_size += (int32_t)(sizeof(uint32_t) * max_num_nodes + SRLA_MEMORY_ALIGNMENT);
     /* ノード使用済みフラグ */
-    work_size += sizeof(uint8_t) * max_num_nodes + SRLA_MEMORY_ALIGNMENT;
+    work_size += (int32_t)(sizeof(uint8_t) * max_num_nodes + SRLA_MEMORY_ALIGNMENT);
 
     return work_size;
 }
@@ -168,7 +168,7 @@ static int32_t SRLAOptimalBlockPartitionCalculator_CalculateWorkSize(
 static struct SRLAOptimalBlockPartitionCalculator *SRLAOptimalBlockPartitionCalculator_Create(
     uint32_t max_num_samples, uint32_t delta_num_samples, void *work, int32_t work_size)
 {
-    uint32_t i, tmp_max_num_nodes;
+    uint32_t tmp_max_num_nodes;
     struct SRLAOptimalBlockPartitionCalculator* obpc;
     uint8_t *work_ptr;
 
@@ -236,7 +236,7 @@ static SRLAError SRLAOptimalBlockPartitionCalculator_ApplyDijkstraMethod(
     /* フラグと経路をクリア, 距離は巨大値に設定 */
     for (i = 0; i < obpc->max_num_nodes; i++) {
         obpc->used_flag[i] = 0;
-        obpc->path[i] = ~0;
+        obpc->path[i] = ~0U;
         obpc->cost[i] = SRLAENCODER_DIJKSTRA_BIGWEIGHT;
     }
 
@@ -290,7 +290,6 @@ static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
 {
     uint32_t i, j, ch;
     uint32_t num_channels, num_nodes, tmp_optimal_num_partitions, tmp_node;
-    double min_code_length;
     struct SRLAOptimalBlockPartitionCalculator *obpc;
 
     /* 引数チェック */
@@ -1184,7 +1183,7 @@ SRLAApiResult SRLAEncoder_EncodeBlock(
     const struct SRLAHeader *header;
     SRLABlockDataType block_type;
     SRLAApiResult ret;
-    uint32_t ch, block_header_size, block_data_size;
+    uint32_t block_header_size, block_data_size;
 
     /* 引数チェック */
     if ((encoder == NULL) || (input == NULL) || (num_samples == 0)
