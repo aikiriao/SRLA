@@ -9,6 +9,7 @@ struct SRLAEncodeParameter {
     uint16_t num_channels; /* 入力波形のチャンネル数 */
     uint16_t bits_per_sample; /* 入力波形のサンプルあたりビット数 */
     uint32_t sampling_rate; /* 入力波形のサンプリングレート */
+    uint32_t min_num_samples_per_block; /* ブロックあたり最小サンプル数 */
     uint32_t max_num_samples_per_block; /* ブロックあたり最大サンプル数 */
     uint8_t preset; /* エンコードパラメータプリセット */
 };
@@ -16,7 +17,8 @@ struct SRLAEncodeParameter {
 /* エンコーダコンフィグ */
 struct SRLAEncoderConfig {
     uint32_t max_num_channels; /* 最大チャンネル数 */
-    uint32_t max_num_samples_per_block; /* 最大のブロックあたりサンプル数 */
+    uint32_t min_num_samples_per_block; /* ブロックあたりサンプル数の下限値 */
+    uint32_t max_num_samples_per_block; /* ブロックあたりサンプル数の上限値 */
     uint32_t max_num_parameters; /* 最大のパラメータ数 */
 };
 
@@ -50,11 +52,17 @@ SRLAApiResult SRLAEncoder_EncodeBlock(
         const int32_t *const *input, uint32_t num_samples,
         uint8_t *data, uint32_t data_size, uint32_t *output_size);
 
+/* 最適なブロック分割探索を含めたエンコード */
+SRLAApiResult SRLAEncoder_EncodeOptimalPartitionedBlock(
+    struct SRLAEncoder *encoder,
+    const int32_t *const *input, uint32_t num_samples,
+    uint8_t *data, uint32_t data_size, uint32_t *output_size);
+
 /* ヘッダ含めファイル全体をエンコード */
 SRLAApiResult SRLAEncoder_EncodeWhole(
     struct SRLAEncoder *encoder,
     const int32_t *const *input, uint32_t num_samples,
-    uint8_t *data, uint32_t data_size, uint32_t *output_size);
+    uint8_t *data, uint32_t data_size, uint32_t *output_size, uint8_t variable_block);
 
 #ifdef __cplusplus
 }

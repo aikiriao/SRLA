@@ -308,6 +308,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
     if (fabs(auto_corr[0]) < FLT_EPSILON) {
         for (i = 0; i < coef_order + 1; i++) {
             parcor_coef[i] = 0.0;
+            error_vars[i] = auto_corr[0]; /* 残差分散は入力と同一 */
         }
         for (k = 0; k < coef_order; k++) {
             for (i = 0; i < coef_order + 1; i++) {

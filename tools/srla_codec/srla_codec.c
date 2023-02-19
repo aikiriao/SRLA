@@ -12,6 +12,8 @@
 #define DEFALUT_PRESET_NO 2
 /* デフォルトの最大ブロックサンプル数 */
 #define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
+/* デフォルトの可変ブロック分割数 */
+#define DEFALUT_NUM_VARIABLE_BLOCK_PARTITIONS 0
 /* マクロの内容を文字列化 */
 #define PRE_TOSTRING(arg) #arg
 #define TOSTRING(arg) PRE_TOSTRING(arg)
@@ -27,7 +29,9 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'm', "mode", "Specify compress mode: 0(fast), ..., 5(high compression) (default:" TOSTRING(DEFALUT_PRESET_NO) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'b', "max-block-size", "Specify max number of block samples (default:" TOSTRING(DEFALUT_MAX_NUM_BLOCK_SAMPLES) ")",
+    { 'B', "max-block-size", "Specify max number of block samples (default:" TOSTRING(DEFALUT_MAX_NUM_BLOCK_SAMPLES) ")",
+        COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'V', "variable-block-partitions", "Specify number of variable block-size partitions (default:" TOSTRING(DEFALUT_NUM_VARIABLE_BLOCK_PARTITIONS) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'c', "no-checksum-check", "Whether to NOT check checksum at decoding (default:no)",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
@@ -39,7 +43,8 @@ static struct CommandLineParserSpecification command_line_spec[] = {
 };
 
 /* エンコード 成功時は0、失敗時は0以外を返す */
-static int do_encode(const char *in_filename, const char *out_filename, uint32_t encode_preset_no, uint32_t max_num_block_samples)
+static int do_encode(const char *in_filename, const char *out_filename,
+    uint32_t encode_preset_no, uint32_t max_num_block_samples, uint32_t variable_block_num_partitions)
 {
     FILE *out_fp;
     struct WAVFile *in_wav;
@@ -52,9 +57,13 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
     uint32_t buffer_size, encoded_data_size;
     SRLAApiResult ret;
     uint32_t ch, smpl, num_channels, num_samples;
+    SRLAApiResult (*encode_function)(struct SRLAEncoder* encoder,
+        const int32_t* const* input, uint32_t num_samples,
+        uint8_t * data, uint32_t data_size, uint32_t * output_size);
 
     /* エンコーダ作成 */
     config.max_num_channels = SRLA_MAX_NUM_CHANNELS;
+    config.min_num_samples_per_block = max_num_block_samples >> variable_block_num_partitions;
     config.max_num_samples_per_block = max_num_block_samples;
     config.max_num_parameters = SRLA_MAX_COEFFICIENT_ORDER;
     if ((encoder = SRLAEncoder_Create(&config, NULL, 0)) == NULL) {
@@ -74,6 +83,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
     parameter.num_channels = (uint16_t)num_channels;
     parameter.bits_per_sample = (uint16_t)in_wav->format.bits_per_sample;
     parameter.sampling_rate = in_wav->format.sampling_rate;
+    parameter.min_num_samples_per_block = max_num_block_samples >> variable_block_num_partitions;
     parameter.max_num_samples_per_block = max_num_block_samples;
     /* プリセットの反映 */
     parameter.preset = (uint8_t)encode_preset_no;
@@ -99,6 +109,9 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
             input[ch][smpl] = (int32_t)(WAVFile_PCM(in_wav, smpl, ch) >> (32 - in_wav->format.bits_per_sample));
         }
     }
+
+    /* エンコード関数の選択 */
+    encode_function = (variable_block_num_partitions == 0) ? SRLAEncoder_EncodeBlock : SRLAEncoder_EncodeOptimalPartitionedBlock;
 
     /* エンコード実行 */
     {
@@ -137,7 +150,7 @@ static int do_encode(const char *in_filename, const char *out_filename, uint32_t
             }
 
             /* ブロックエンコード */
-            if ((ret = SRLAEncoder_EncodeBlock(encoder,
+            if ((ret = encode_function(encoder,
                     input_ptr, num_encode_samples,
                     data_pos, buffer_size - write_offset, &write_size)) != SRLA_APIRESULT_OK) {
                 fprintf(stderr, "Failed to encode! ret:%d \n", ret);
@@ -276,9 +289,9 @@ static void print_version_info(void)
 /* メインエントリ */
 int main(int argc, char** argv)
 {
-    const char* filename_ptr[2] = { NULL, NULL };
-    const char* input_file;
-    const char* output_file;
+    const char *filename_ptr[2] = { NULL, NULL };
+    const char *input_file;
+    const char *output_file;
 
     /* 引数が足らない */
     if (argc == 1) {
@@ -290,7 +303,7 @@ int main(int argc, char** argv)
 
     /* コマンドライン解析 */
     if (CommandLineParser_ParseArguments(command_line_spec,
-                argc, (const char* const*)argv, filename_ptr, sizeof(filename_ptr) / sizeof(filename_ptr[0]))
+                argc, (const char *const *)argv, filename_ptr, sizeof(filename_ptr) / sizeof(filename_ptr[0]))
             != COMMAND_LINE_PARSER_RESULT_OK) {
         return 1;
     }
@@ -341,6 +354,7 @@ int main(int argc, char** argv)
         /* エンコード */
         uint32_t encode_preset_no = DEFALUT_PRESET_NO;
         uint32_t max_num_block_samples = DEFALUT_MAX_NUM_BLOCK_SAMPLES;
+        uint32_t variable_block_num_partitions = DEFALUT_NUM_VARIABLE_BLOCK_PARTITIONS;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
@@ -369,8 +383,22 @@ int main(int argc, char** argv)
                 return 1;
             }
         }
+        /* 可変ブロックエンコード分割数 */
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "variable-block-partitions") == COMMAND_LINE_PARSER_TRUE) {
+            char *e;
+            const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "variable-block-partitions");
+            variable_block_num_partitions = (uint32_t)strtol(lstr, &e, 10);
+            if (*e != '\0') {
+                fprintf(stderr, "%s: invalid number of variable block partitions. (irregular character found in %s at %s)\n", argv[0], lstr, e);
+                return 1;
+            }
+            if ((max_num_block_samples >> variable_block_num_partitions) == 0) {
+                fprintf(stderr, "%s: number of variable block partitions is too large. \n", argv[0]);
+                return 1;
+            }
+        }
         /* 一括エンコード実行 */
-        if (do_encode(input_file, output_file, encode_preset_no, max_num_block_samples) != 0) {
+        if (do_encode(input_file, output_file, encode_preset_no, max_num_block_samples, variable_block_num_partitions) != 0) {
             fprintf(stderr, "%s: failed to encode %s. \n", argv[0], input_file);
             return 1;
         }
