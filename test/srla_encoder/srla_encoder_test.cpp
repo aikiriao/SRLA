@@ -440,7 +440,7 @@ TEST(SRLAEncoderTest, DijkstraTest)
         uint32_t j;
         double weight;
     };
-    
+
     /* ダイクストラ法のテストケース */
     typedef struct DijkstraTestCase {
         uint32_t num_nodes;
@@ -452,14 +452,14 @@ TEST(SRLAEncoderTest, DijkstraTest)
         uint32_t len_answer_route_path;
         const uint32_t *answer_route_path;
     };
-    
+
     /* テストケース0の重み */
     static const DijkstraTestCaseAdjacencyMatrixWeight test_case0_weight[] = {
         { 0, 1, 114514 }
     };
     /* テストケース0の回答経路 */
     static const uint32_t test_case0_answer_route[] = { 0, 1 };
-    
+
     /* テストケース1の重み */
     static const DijkstraTestCaseAdjacencyMatrixWeight test_case1_weight[] = {
         { 0, 1, 30 }, { 0, 3, 10 }, { 0, 2, 15 },
@@ -471,7 +471,7 @@ TEST(SRLAEncoderTest, DijkstraTest)
     };
     /* テストケース1の回答経路 */
     static const uint32_t test_case1_answer_route[] = { 0, 3, 6 };
-    
+
     /* テストケース2の重み */
     static const DijkstraTestCaseAdjacencyMatrixWeight test_case2_weight[] = {
         {  0,  1,  15 }, {  0,  2,  58 }, {  0,  3,  79 }, {  0,  4,   1 }, {  0,  5,  44 },
@@ -522,11 +522,11 @@ TEST(SRLAEncoderTest, DijkstraTest)
     };
     /* テストケース2の回答経路 */
     static const uint32_t test_case2_answer_route[] = { 0, 4, 5, 10, 15, 20, 24, 25, 29 };
-    
+
     /* ダイクストラ法のテストケース */
     static const DijkstraTestCase test_cases[] = {
         /* テストケース0（コーナーケース）:
-         * ノード数2, 最小コスト: 114514, 経路 0 -> 1 */
+        * ノード数2, 最小コスト: 114514, 経路 0 -> 1 */
         {
             2,
             0,
@@ -538,7 +538,7 @@ TEST(SRLAEncoderTest, DijkstraTest)
             test_case0_answer_route
         },
         /* テストケース1:
-         * ノード数7, 最小コスト: 45, 経路 0 -> 3 -> 6 */
+        * ノード数7, 最小コスト: 45, 経路 0 -> 3 -> 6 */
         {
             7,
             0,
@@ -550,7 +550,7 @@ TEST(SRLAEncoderTest, DijkstraTest)
             test_case1_answer_route
         },
         /* テストケース2:
-         * ノード数30, 最小コスト: 213, 経路 0 -> 4 -> 5 -> 10 -> 15 -> 20 -> 24 -> 25 -> 29 */
+        * ノード数30, 最小コスト: 213, 経路 0 -> 4 -> 5 -> 10 -> 15 -> 20 -> 24 -> 25 -> 29 */
         {
             30,
             0,
@@ -564,19 +564,19 @@ TEST(SRLAEncoderTest, DijkstraTest)
     };
     /* ダイクストラ法のテストケース数 */
     const uint32_t num_test_case = sizeof(test_cases) / sizeof(test_cases[0]);
-    
+
     /* ダイクストラ法の実行テスト */
     {
         struct SRLAOptimalBlockPartitionCalculator *obpc;
         uint32_t test_no, i, j, node, is_ok;
         double cost;
-    
+
         /* 全テストケースに対してテスト */
         for (test_no = 0; test_no < num_test_case; test_no++) {
             const DijkstraTestCase *p_test = &test_cases[test_no];
             int32_t work_size;
             void *work;
-    
+
             /* ノード数num_nodesでハンドルを作成 */
             work_size = SRLAOptimalBlockPartitionCalculator_CalculateWorkSize(p_test->num_nodes, 1);
             ASSERT_TRUE(work_size > 0);
@@ -584,7 +584,7 @@ TEST(SRLAEncoderTest, DijkstraTest)
 
             obpc = SRLAOptimalBlockPartitionCalculator_Create(p_test->num_nodes, 1, work, work_size);
             ASSERT_TRUE(obpc != NULL);
-    
+
             /* 隣接行列をセット */
             for (i = 0; i < obpc->max_num_nodes; i++) {
                 for (j = 0; j < obpc->max_num_nodes; j++) {
@@ -595,16 +595,16 @@ TEST(SRLAEncoderTest, DijkstraTest)
                 const DijkstraTestCaseAdjacencyMatrixWeight *p = &p_test->weight[i];
                 obpc->adjacency_matrix[p->i][p->j] = p->weight;
             }
-    
+
             /* ダイクストラ法実行 */
             ASSERT_EQ(
                 SRLAOptimalBlockPartitionCalculator_ApplyDijkstraMethod(obpc,
                     p_test->num_nodes, p_test->start_node, p_test->goal_node, &cost),
                 SRLA_ERROR_OK);
-    
+
             /* コストのチェック */
             EXPECT_FLOAT_EQ(p_test->min_cost, cost);
-    
+
             /* 経路のチェック */
             is_ok = 1;
             node = p_test->goal_node;

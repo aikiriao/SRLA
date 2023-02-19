@@ -245,7 +245,7 @@ static SRLAError SRLAOptimalBlockPartitionCalculator_ApplyDijkstraMethod(
     target = start_node;
     while (1) {
         /* まだ未確定のノードから最も距離（重み）が小さいノードを
-         * その地点の最小距離として確定 */
+        * その地点の最小距離として確定 */
         min = SRLAENCODER_DIJKSTRA_BIGWEIGHT;
         for (i = 0; i < num_nodes; i++) {
             if ((obpc->used_flag[i] == 0) && (min > obpc->cost[i])) {
@@ -260,8 +260,8 @@ static SRLAError SRLAOptimalBlockPartitionCalculator_ApplyDijkstraMethod(
         }
 
         /* 現在確定したノードから、直接繋がっており、かつ、未確定の
-         * ノードに対して、現在確定したノードを経由した時の距離を計算し、
-         * 今までの距離よりも小さければ距離と経路を修正 */
+        * ノードに対して、現在確定したノードを経由した時の距離を計算し、
+        * 今までの距離よりも小さければ距離と経路を修正 */
         for (i = 0; i < num_nodes; i++) {
             if (obpc->cost[i] > (obpc->adjacency_matrix[target][i] + obpc->cost[target])) {
                 obpc->cost[i] = obpc->adjacency_matrix[target][i] + obpc->cost[target];
@@ -320,7 +320,7 @@ static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
 
     /* 隣接行列のセット */
     /* (i,j)要素は、i * delta_num_samples から j * delta_num_samples まで
-     * エンコードした時のコスト（符号長）が入る */
+    * エンコードした時のコスト（符号長）が入る */
     for (i = 0; i < num_nodes; i++) {
         for (j = i + 1; j < num_nodes; j++) {
             double code_length;
