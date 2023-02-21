@@ -1156,6 +1156,11 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
         return LPC_APIRESULT_INVALID_ARGUMENT;
     }
 
+    /* 次数チェック */
+    if (coef_order > lpcc->max_order) {
+        return LPC_APIRESULT_EXCEED_MAX_ORDER;
+    }
+
     /* 係数計算 */
     if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, 0.0) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;

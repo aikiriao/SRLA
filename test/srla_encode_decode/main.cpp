@@ -7,6 +7,7 @@
 #include "srla_encoder.h"
 #include "srla_decoder.h"
 #include "srla_utility.h"
+#include "srla_internal.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -214,7 +215,7 @@ static void SRLAEncodeDecodeTest_InputDoubleToInputFixedFloat(
 }
 
 /* 単一のテストケースを実行 */
-static int32_t SRLAEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTestCase* test_case)
+static int32_t SRLAEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTestCase *test_case)
 {
     int32_t ret;
     uint32_t smpl, ch;
@@ -230,12 +231,14 @@ static int32_t SRLAEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTes
     struct SRLADecoderConfig decoder_config;
     struct SRLAEncoder *encoder;
     struct SRLADecoder *decoder;
+    const struct SRLAParameterPreset *preset;
 
     assert(test_case != NULL);
     assert(test_case->num_samples <= (1UL << 14));  /* 長過ぎる入力はNG */
-
+ 
     num_samples   = test_case->num_samples;
     num_channels  = test_case->encode_parameter.num_channels;
+    preset = &g_srla_parameter_preset[test_case->encode_parameter.preset];
     /* 十分なデータサイズを用意（入力データPCMの2倍） */
     data_size     = SRLA_HEADER_SIZE + (2 * num_channels * num_samples * test_case->encode_parameter.bits_per_sample) / 8;
 
@@ -244,9 +247,9 @@ static int32_t SRLAEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTes
     encoder_config.max_num_channels          = num_channels;
     encoder_config.min_num_samples_per_block = test_case->encode_parameter.min_num_samples_per_block;
     encoder_config.max_num_samples_per_block = test_case->encode_parameter.max_num_samples_per_block;
-    encoder_config.max_num_parameters        = 32;
+    encoder_config.max_num_parameters        = preset->max_num_parameters;
     decoder_config.max_num_channels          = num_channels;
-    decoder_config.max_num_parameters        = 32;
+    decoder_config.max_num_parameters        = preset->max_num_parameters;
     decoder_config.check_checksum            = 1;
 
     /* 一時領域の割り当て */
