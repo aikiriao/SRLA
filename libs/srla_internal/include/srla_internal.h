@@ -19,7 +19,7 @@
 /* LPC係数右シフト量のビット幅 */
 #define SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH 4
 /* (LPC係数次数-1)のビット幅 */
-#define SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH 5
+#define SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH 7
 /* 圧縮をやめて生データを出力するときの閾値（サンプルあたりビット数に占める比率） */
 #define SRLA_ESTIMATED_CODELENGTH_THRESHOLD 0.95f
 
