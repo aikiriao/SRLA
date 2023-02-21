@@ -235,7 +235,7 @@ static int32_t SRLAEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTes
 
     assert(test_case != NULL);
     assert(test_case->num_samples <= (1UL << 14));  /* 長過ぎる入力はNG */
- 
+
     num_samples   = test_case->num_samples;
     num_channels  = test_case->encode_parameter.num_channels;
     preset = &g_srla_parameter_preset[test_case->encode_parameter.preset];
