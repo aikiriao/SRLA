@@ -834,7 +834,8 @@ static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint
 }
 
 /* 最適なLPC次数の選択 */
-static SRLAError SRLAEncoder_SelectBestLPCOrder(struct SRLAEncoder *encoder,
+static SRLAError SRLAEncoder_SelectBestLPCOrder(
+    struct SRLAEncoder *encoder,
     const double *input, uint32_t num_samples, SRLAChannelLPCOrderDecisionTactics tactics,
     uint32_t max_coef_order, uint32_t *best_coef_order)
 {
