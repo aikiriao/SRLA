@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 
     /* デコーダハンドルの作成 */
     decoder_config.max_num_channels = header.num_channels;
-    decoder_config.max_num_parameters = 32;
+    decoder_config.max_num_parameters = SRLA_MAX_COEFFICIENT_ORDER;
     decoder_config.check_checksum = 1;
     if ((decoder = SRLADecoder_Create(&decoder_config, NULL, 0)) == NULL) {
         fprintf(stderr, "Failed to create decoder handle. \n");
