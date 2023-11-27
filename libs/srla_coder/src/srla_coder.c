@@ -34,22 +34,26 @@ typedef enum SRLACoderCodeTypeTag {
 struct SRLACoder {
     uint8_t alloced_by_own;
     double part_mean[SRLACODER_LOG2_MAX_NUM_PARTITIONS + 1][SRLACODER_MAX_NUM_PARTITIONS];
+    uint32_t *uval_buffer;
     void *work;
 };
 
 /* 符号化ハンドルの作成に必要なワークサイズの計算 */
-int32_t SRLACoder_CalculateWorkSize(void)
+int32_t SRLACoder_CalculateWorkSize(uint32_t max_num_samples)
 {
     int32_t work_size;
 
     /* ハンドル分のサイズ */
     work_size = sizeof(struct SRLACoder) + SRLACODER_MEMORY_ALIGNMENT;
 
+    /* 符号サンプルバッファのサイズ */
+    work_size += SRLACODER_MEMORY_ALIGNMENT + sizeof(uint32_t) * max_num_samples;
+
     return work_size;
 }
 
 /* 符号化ハンドルの作成 */
-struct SRLACoder* SRLACoder_Create(void *work, int32_t work_size)
+struct SRLACoder* SRLACoder_Create(uint32_t max_num_samples, void *work, int32_t work_size)
 {
     struct SRLACoder *coder;
     uint8_t tmp_alloc_by_own = 0;
@@ -58,7 +62,7 @@ struct SRLACoder* SRLACoder_Create(void *work, int32_t work_size)
     /* ワーク領域時前確保の場合 */
     if ((work == NULL) && (work_size == 0)) {
         /* 引数を自前の計算値に差し替える */
-        if ((work_size = SRLACoder_CalculateWorkSize()) < 0) {
+        if ((work_size = SRLACoder_CalculateWorkSize(max_num_samples)) < 0) {
             return NULL;
         }
         work = malloc((uint32_t)work_size);
@@ -66,7 +70,7 @@ struct SRLACoder* SRLACoder_Create(void *work, int32_t work_size)
     }
 
     /* 引数チェック */
-    if ((work == NULL) || (work_size < SRLACoder_CalculateWorkSize())) {
+    if ((work == NULL) || (work_size < SRLACoder_CalculateWorkSize(max_num_samples))) {
         return NULL;
     }
 
@@ -77,6 +81,11 @@ struct SRLACoder* SRLACoder_Create(void *work, int32_t work_size)
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLACODER_MEMORY_ALIGNMENT);
     coder = (struct SRLACoder *)work_ptr;
     work_ptr += sizeof(struct SRLACoder);
+
+    /* 符号サンプルバッファ確保 */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLACODER_MEMORY_ALIGNMENT);
+    coder->uval_buffer = (uint32_t *)work_ptr;
+    work_ptr += sizeof(uint32_t) * max_num_samples;
 
     /* ハンドルメンバ設定 */
     coder->alloced_by_own = tmp_alloc_by_own;
@@ -381,7 +390,9 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
             const uint32_t nsmpl = num_samples / max_num_partitions;
             double part_sum = 0.0;
             for (smpl = 0; smpl < nsmpl; smpl++) {
-                part_sum += SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
+                /* uint32の変換結果をキャッシュ */
+                coder->uval_buffer[part * nsmpl + smpl] = SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
+                part_sum += coder->uval_buffer[part * nsmpl + smpl];
             }
             coder->part_mean[max_porder][part] = part_sum / nsmpl;
         }
@@ -416,7 +427,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                 for (part = 0; part < (1U << porder); part++) {
                     SRLACoder_CalculateOptimalRiceParameter(coder->part_mean[porder][part], &k, NULL);
                     for (smpl = 0; smpl < nsmpl; smpl++) {
-                        bits += Rice_GetCodeLength(k, SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]));
+                        bits += Rice_GetCodeLength(k, coder->uval_buffer[part * nsmpl + smpl]);
                     }
                     if (part == 0) {
                         bits += SRLACODER_RICE_PARAMETER_BITS;
@@ -443,7 +454,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                 for (part = 0; part < (1U << porder); part++) {
                     SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, NULL);
                     for (smpl = 0; smpl < nsmpl; smpl++) {
-                        bits += RecursiveRice_GetCodeLength(k1, k2, SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]));
+                        bits += RecursiveRice_GetCodeLength(k1, k2, coder->uval_buffer[part * nsmpl + smpl]);
                     }
                     if (part == 0) {
                         bits += SRLACODER_RICE_PARAMETER_BITS;
@@ -491,8 +502,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                 }
                 prevk = k;
                 for (smpl = 0; smpl < nsmpl; smpl++) {
-                    const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
-                    Rice_PutCode(stream, k, uval);
+                    Rice_PutCode(stream, k, coder->uval_buffer[part * nsmpl + smpl]);
                 }
             }
         }
@@ -510,8 +520,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                 }
                 prevk2 = k2;
                 for (smpl = 0; smpl < nsmpl; smpl++) {
-                    const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
-                    RecursiveRice_PutCode(stream, k1, k2, uval);
+                    RecursiveRice_PutCode(stream, k1, k2, coder->uval_buffer[part * nsmpl + smpl]);
                 }
             }
         }

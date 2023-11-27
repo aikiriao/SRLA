@@ -468,7 +468,7 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     }
 
     /* 符号化ハンドルのサイズ */
-    if ((tmp_work_size = SRLACoder_CalculateWorkSize()) < 0) {
+    if ((tmp_work_size = SRLACoder_CalculateWorkSize(config->max_num_samples_per_block)) < 0) {
         return -1;
     }
     work_size += tmp_work_size;
@@ -570,8 +570,8 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
 
     /* 符号化ハンドルの作成 */
     {
-        const int32_t coder_size = SRLACoder_CalculateWorkSize();
-        if ((encoder->coder = SRLACoder_Create(work_ptr, coder_size)) == NULL) {
+        const int32_t coder_size = SRLACoder_CalculateWorkSize(config->max_num_samples_per_block);
+        if ((encoder->coder = SRLACoder_Create(config->max_num_samples_per_block, work_ptr, coder_size)) == NULL) {
             return NULL;
         }
         work_ptr += coder_size;

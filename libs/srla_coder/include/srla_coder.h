@@ -12,10 +12,10 @@ extern "C" {
 #endif
 
 /* 符号化ハンドルの作成に必要なワークサイズの計算 */
-int32_t SRLACoder_CalculateWorkSize(void);
+int32_t SRLACoder_CalculateWorkSize(uint32_t max_num_samples);
 
 /* 符号化ハンドルの作成 */
-struct SRLACoder* SRLACoder_Create(void *work, int32_t work_size);
+struct SRLACoder* SRLACoder_Create(uint32_t max_num_samples, void *work, int32_t work_size);
 
 /* 符号化ハンドルの破棄 */
 void SRLACoder_Destroy(struct SRLACoder *coder);
