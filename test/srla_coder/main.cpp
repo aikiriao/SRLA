@@ -16,7 +16,7 @@ TEST(SRLACoderTest, CreateDestroyHandleTest)
         int32_t work_size;
 
         /* 最低限構造体本体よりは大きいはず */
-        work_size = SRLACoder_CalculateWorkSize();
+        work_size = SRLACoder_CalculateWorkSize(0);
         ASSERT_TRUE(work_size > sizeof(struct SRLACoder));
     }
 
@@ -26,10 +26,10 @@ TEST(SRLACoderTest, CreateDestroyHandleTest)
         int32_t work_size;
         struct SRLACoder *coder;
 
-        work_size = SRLACoder_CalculateWorkSize();
+        work_size = SRLACoder_CalculateWorkSize(0);
         work = malloc(work_size);
 
-        coder = SRLACoder_Create(work, work_size);
+        coder = SRLACoder_Create(0, work, work_size);
         ASSERT_TRUE(coder != NULL);
         EXPECT_TRUE(coder->work == work);
         EXPECT_EQ(coder->alloced_by_own, 0);
@@ -42,7 +42,7 @@ TEST(SRLACoderTest, CreateDestroyHandleTest)
     {
         struct SRLACoder *coder;
 
-        coder = SRLACoder_Create(NULL, 0);
+        coder = SRLACoder_Create(0, NULL, 0);
         ASSERT_TRUE(coder != NULL);
         EXPECT_TRUE(coder->work != NULL);
         EXPECT_EQ(coder->alloced_by_own, 1);
@@ -56,18 +56,20 @@ TEST(SRLACoderTest, CreateDestroyHandleTest)
         int32_t work_size;
         struct SRLACoder *coder;
 
-        work_size = SRLACoder_CalculateWorkSize();
+        work_size = SRLACoder_CalculateWorkSize(0);
         work = malloc(work_size);
 
         /* 引数が不正 */
-        coder = SRLACoder_Create(NULL, work_size);
+        coder = SRLACoder_Create(0, NULL, work_size);
         EXPECT_TRUE(coder == NULL);
-        coder = SRLACoder_Create(work, 0);
+        coder = SRLACoder_Create(0, work, 0);
         EXPECT_TRUE(coder == NULL);
 
         /* ワークサイズ不足 */
-        coder = SRLACoder_Create(work, work_size - 1);
+        coder = SRLACoder_Create(0, work, work_size - 1);
         EXPECT_TRUE(coder == NULL);
+
+        free(work);
     }
 }
 
