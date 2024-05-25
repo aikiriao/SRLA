@@ -306,11 +306,20 @@ static void SRLACoder_CalculateOptimalRecursiveRiceParameter(
     rho = 1.0 / (1.0 + mean);
 
     /* 最適なパラメータの計算 */
-#if 1
-    /* 簡易版 */
+#if 0
     k2 = (uint32_t)SRLAUTILITY_MAX(0, floor(SRLAUtility_Log2(log(OPTX) / log(1.0 - rho))));
     k1 = k2 + 1;
 #else
+    /* 高速近似計算 */
+    {
+#define MLNOPTX (0.66794162356) /* -ln(OPTX) */
+        const uint32_t opt_golomb_param = (uint32_t)SRLAUTILITY_MAX(1, MLNOPTX * (1.0 + mean));
+        k2 = SRLAUTILITY_LOG2FLOOR(opt_golomb_param);
+        k1 = k2 + 1;
+    }
+#endif
+
+#if 0
     /* k1を2分法で求める */
     /* note: 一般にk1 = k2 + 1が成り立たなくなり符号化で不利！ */
     {
