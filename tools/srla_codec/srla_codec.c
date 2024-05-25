@@ -9,11 +9,11 @@
 #include <sys/stat.h>
 
 /* デフォルトプリセット */
-#define DEFALUT_PRESET_NO 2
+#define DEFALUT_PRESET_NO 8
 /* デフォルトの最大ブロックサンプル数 */
 #define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
 /* デフォルトの可変ブロック分割数 */
-#define DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS 0
+#define DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS 1
 /* マクロの内容を文字列化 */
 #define PRE_TOSTRING(arg) #arg
 #define TOSTRING(arg) PRE_TOSTRING(arg)
@@ -27,7 +27,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'd', "decode", "Decode mode",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'm', "mode", "Specify compress mode: 0(fast), ..., 5(high compression) (default:" TOSTRING(DEFALUT_PRESET_NO) ")",
+    { 'm', "mode", "Specify compress mode: 0(fast), ..., 13(high compression) (default:" TOSTRING(DEFALUT_PRESET_NO) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'B', "max-block-size", "Specify max number of block samples (default:" TOSTRING(DEFALUT_MAX_NUM_BLOCK_SAMPLES) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
