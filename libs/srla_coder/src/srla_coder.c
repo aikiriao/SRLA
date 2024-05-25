@@ -437,8 +437,12 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                         bits += SRLACODER_GAMMA_BITS(udiff);
                     }
                     prevk = k;
+                    /* 途中で最小値を超えていたら終わり */
+                    if (bits >= min_bits) {
+                        break;
+                    }
                 }
-                if (min_bits > bits) {
+                if (bits < min_bits) {
                     min_bits = bits;
                     best_porder = porder;
                 }
@@ -464,8 +468,12 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                         bits += SRLACODER_GAMMA_BITS(udiff);
                     }
                     prevk2 = k2;
+                    /* 途中で最小値を超えていたら終わり */
+                    if (bits >= min_bits) {
+                        break;
+                    }
                 }
-                if (min_bits > bits) {
+                if (bits < min_bits) {
                     min_bits = bits;
                     best_porder = porder;
                 }
