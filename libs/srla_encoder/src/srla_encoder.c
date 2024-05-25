@@ -728,7 +728,7 @@ static SRLABlockDataType SRLAEncoder_DecideBlockDataType(
         /* 推定符号長計算 */
         ret = LPCCalculator_EstimateCodeLength(encoder->lpcc,
             encoder->buffer_double, num_samples,
-            header->bits_per_sample, encoder->parameter_preset->max_num_parameters, &len, LPC_WINDOWTYPE_RECTANGULAR);
+            header->bits_per_sample, encoder->parameter_preset->max_num_parameters, &len, LPC_WINDOWTYPE_WELCH);
         SRLA_ASSERT(ret == LPC_APIRESULT_OK);
         mean_length += len;
     }
