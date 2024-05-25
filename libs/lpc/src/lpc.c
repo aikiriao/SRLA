@@ -362,8 +362,7 @@ static void realft(double *data, unsigned long n, int isign)
     if (isign == 1) {
         c2 = -0.5;
         four1(data, n >> 1, 1);
-    }
-    else {
+    } else {
         c2 = 0.5;
         theta = -theta;
     }
@@ -389,8 +388,7 @@ static void realft(double *data, unsigned long n, int isign)
     if (isign == 1) {
         data[1] = (h1r = data[1]) + data[2];
         data[2] = h1r - data[2];
-    }
-    else {
+    } else {
         data[1] = c1 * ((h1r = data[1]) + data[2]);
         data[2] = c1 * (h1r - data[2]);
         four1(data, n >> 1, -1);
