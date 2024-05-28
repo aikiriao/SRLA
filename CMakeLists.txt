@@ -11,6 +11,7 @@ add_library(${CODEC_LIB_NAME}
     $<TARGET_OBJECTS:srla_internal>
     $<TARGET_OBJECTS:bit_stream>
     $<TARGET_OBJECTS:lpc>
+    $<TARGET_OBJECTS:fft>
     )
 
 # デコーダライブラリ

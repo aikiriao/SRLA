@@ -7,6 +7,8 @@
 #include <float.h>
 #include <assert.h>
 
+#include "fft.h"
+
 /* メモリアラインメント */
 #define LPC_ALIGNMENT 16
 /* 円周率 */
@@ -48,6 +50,7 @@ struct LPCCalculator {
     double *parcor_coef; /* PARCOR係数ベクトル */
     double *error_vars; /* 残差分散 */
     double *buffer; /* 入力信号のバッファ領域 */
+    double *work_buffer; /* 計算用バッファ */
     uint8_t alloced_by_own; /* 自分で領域確保したか？ */
     void *work; /* ワーク領域先頭ポインタ */
 };
@@ -108,6 +111,8 @@ int32_t LPCCalculator_CalculateWorkSize(const struct LPCCalculatorConfig *config
     work_size += (int32_t)(sizeof(double *) * (config->max_order + 1));
     work_size += (int32_t)(sizeof(double) * (config->max_order + 1) * (config->max_order + 1));
     /* 入力信号バッファ領域 */
+    work_size += (int32_t)(sizeof(double) * LPC_RoundUp2Powered(config->max_num_samples));
+    /* 計算用バッファ領域 */
     work_size += (int32_t)(sizeof(double) * LPC_RoundUp2Powered(config->max_num_samples));
 
     return work_size;
@@ -206,6 +211,10 @@ struct LPCCalculator* LPCCalculator_Create(const struct LPCCalculatorConfig *con
     lpcc->buffer = (double *)work_ptr;
     work_ptr += sizeof(double) * LPC_RoundUp2Powered(config->max_num_samples);
 
+    /* 計算用バッファの領域 */
+    lpcc->work_buffer = (double *)work_ptr;
+    work_ptr += sizeof(double) * LPC_RoundUp2Powered(config->max_num_samples);
+
     /* バッファオーバーフローチェック */
     assert((work_ptr - (uint8_t *)work) <= work_size);
 
@@ -299,112 +308,9 @@ static LPCError LPC_CalculateAutoCorrelation(
     return LPC_ERROR_OK;
 }
 
-/* FFTのサブルーチン */
-/* ftp://ftp.cpc.ncep.noaa.gov/wd51we/random_phase/four1.c から引用 */
-static void four1(double *data, unsigned long nn, int isign)
-{
-    unsigned long n, mmax, m, j, istep, i;
-    double wtemp, wr, wpr, wpi, wi, theta;
-    double tempr, tempi;
-
-#define SWAP(a,b) tempr=(a);(a)=(b);(b)=tempr
-
-    n = nn << 1;
-    j = 1;
-    for (i = 1; i < n; i += 2) {
-        if (j > i) {
-            SWAP(data[j], data[i]);
-            SWAP(data[j + 1], data[i + 1]);
-        }
-        m = n >> 1;
-        while (m >= 2 && j > m) {
-            j -= m;
-            m >>= 1;
-        }
-        j += m;
-    }
-    mmax = 2;
-    while (n > mmax) {
-        istep = mmax << 1;
-        theta = isign * (6.28318530717959 / (double)mmax);
-        wtemp = sin(0.5 * theta);
-        wpr = -2.0 * wtemp * wtemp;
-        wpi = sin(theta);
-        wr = 1.0;
-        wi = 0.0;
-        for (m = 1; m < mmax; m += 2) {
-            for (i = m; i <= n; i += istep) {
-                j = i + mmax;
-                tempr = wr * data[j] - wi * data[j + 1];
-                tempi = wr * data[j + 1] + wi * data[j];
-                data[j] = data[i] - tempr;
-                data[j + 1] = data[i + 1] - tempi;
-                data[i] += tempr;
-                data[i + 1] += tempi;
-            }
-            wr = (wtemp = wr) * wpr - wi * wpi + wr;
-            wi = wi * wpr + wtemp * wpi + wi;
-        }
-        mmax = istep;
-    }
-#undef SWAP
-}
-
-/* in-placeなFFTルーチン */
-/* ftp://ftp.cpc.ncep.noaa.gov/wd51we/random_phase/realft.c から引用・改変 */
-static void realft(double *data, unsigned long n, int isign)
-{
-    unsigned long i, i1, i2, i3, i4, np3;
-    double c1 = 0.5, c2, h1r, h1i, h2r, h2i;
-    double wr, wi, wpr, wpi, wtemp, theta;
-
-    theta = 3.141592653589793 / (double)(n >> 1);
-    if (isign == 1) {
-        c2 = -0.5;
-        four1(data, n >> 1, 1);
-    } else {
-        c2 = 0.5;
-        theta = -theta;
-    }
-    wtemp = sin(0.5 * theta);
-    wpr = -2.0 * wtemp * wtemp;
-    wpi = sin(theta);
-    wr = 1.0 + wpr;
-    wi = wpi;
-    np3 = n + 3;
-    for (i = 2; i <= (n >> 2); i++) {
-        i4 = 1 + (i3 = np3 - (i2 = 1 + (i1 = i + i - 1)));
-        h1r = c1 * (data[i1] + data[i3]);
-        h1i = c1 * (data[i2] - data[i4]);
-        h2r = -c2 * (data[i2] + data[i4]);
-        h2i = c2 * (data[i1] - data[i3]);
-        data[i1] = h1r + wr * h2r - wi * h2i;
-        data[i2] = h1i + wr * h2i + wi * h2r;
-        data[i3] = h1r - wr * h2r + wi * h2i;
-        data[i4] = -h1i + wr * h2i + wi * h2r;
-        wr = (wtemp = wr) * wpr - wi * wpi + wr;
-        wi = wi * wpr + wtemp * wpi + wi;
-    }
-    if (isign == 1) {
-        data[1] = (h1r = data[1]) + data[2];
-        data[2] = h1r - data[2];
-    } else {
-        data[1] = c1 * ((h1r = data[1]) + data[2]);
-        data[2] = c1 * (h1r - data[2]);
-        four1(data, n >> 1, -1);
-    }
-}
-
-/* FFTハンドル: realftのインデックスのズレを補正 */
-static void LPC_FFT(double *data, uint32_t n, int32_t sign)
-{
-    assert(data != NULL);
-    realft(&data[-1], n, (int)sign);
-}
-
 /* FFTによる（標本）自己相関の計算 data_bufferの内容は破壊される */
 static LPCError LPC_CalculateAutoCorrelationByFFT(
-    double *data_buffer, uint32_t num_buffer_samples, uint32_t num_samples, double *auto_corr, uint32_t order)
+    double *data_buffer, double *work_buffer, uint32_t num_buffer_samples, uint32_t num_samples, double *auto_corr, uint32_t order)
 {
     uint32_t i;
     uint32_t fft_size;
@@ -428,7 +334,7 @@ static LPCError LPC_CalculateAutoCorrelationByFFT(
     }
 
     /* FFT */
-    LPC_FFT(data_buffer, fft_size, 1);
+    FFT_RealFFT(fft_size, -1, data_buffer, work_buffer);
 
     /* 複素絶対値の2乗計算 */
     data_buffer[0] *= data_buffer[0];
@@ -441,7 +347,7 @@ static LPCError LPC_CalculateAutoCorrelationByFFT(
     }
 
     /* IFFT */
-    LPC_FFT(data_buffer, fft_size, -1);
+    FFT_RealFFT(fft_size, 1, data_buffer, work_buffer);
 
     /* 正規化定数を戻しつつ結果セット */
     for (i = 0; i < order; i++) {
@@ -561,7 +467,8 @@ static LPCError LPC_CalculateCoef(
     }
 #else
     if (LPC_CalculateAutoCorrelationByFFT(
-            lpcc->buffer, lpcc->max_num_buffer_samples, num_samples, lpcc->auto_corr, coef_order + 1) != LPC_ERROR_OK) {
+            lpcc->buffer, lpcc->work_buffer, lpcc->max_num_buffer_samples,
+            num_samples, lpcc->auto_corr, coef_order + 1) != LPC_ERROR_OK) {
         return LPC_ERROR_NG;
     }
 #endif
