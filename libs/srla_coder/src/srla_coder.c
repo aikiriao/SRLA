@@ -361,18 +361,35 @@ static uint32_t Rice_GetCodeLength(uint32_t k, uint32_t uval)
     return 1 + k  + (uval >> k);
 }
 
-/* 再帰的Rice符号長の出力 */
-static uint32_t RecursiveRice_GetCodeLength(uint32_t k1, uint32_t k2, uint32_t uval)
+/* 配列に対して再帰的Rice符号長を計算 */
+static uint32_t RecursiveRice_ComputeCodeLength(const uint32_t *data, uint32_t num_samples, uint32_t k1, uint32_t k2)
 {
+    uint32_t smpl, length;
     const uint32_t k1pow = 1U << k1;
 
-    if (uval < k1pow) {
-        /* 1段目で符号化 */
-        return k1 + 1;
-    } else {
-        /* 1段目のパラメータで引き、2段目のパラメータでRice符号化 */
-        return k2 + 2 + ((uval - k1pow) >> k2);
+    assert(data != NULL);
+
+#if 0
+    length = 0;
+    for (smpl = 0; smpl < num_samples; smpl++) {
+        const uint32_t uval = data[smpl];
+        if (uval < k1pow) {
+            /* 1段目で符号化 */
+            length += (k1 + 1);
+        } else {
+            /* 1段目のパラメータで引き、2段目のパラメータでRice符号化 */
+            length += (k2 + 2 + ((uval - k1pow) >> k2));
+        }
     }
+#else
+    assert((k2 + 1) == k1);
+    length = (k1 + 1) * num_samples;
+    for (smpl = 0; smpl < num_samples; smpl++) {
+        length += (SRLAUTILITY_MAX(0, (int32_t)data[smpl] - (int32_t)k1pow) >> k2);
+    }
+#endif
+
+    return length;
 }
 
 /* 符号付き整数配列の符号化 */
@@ -466,9 +483,7 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                 uint32_t bits = 0;
                 for (part = 0; part < (1U << porder); part++) {
                     SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, NULL);
-                    for (smpl = 0; smpl < nsmpl; smpl++) {
-                        bits += RecursiveRice_GetCodeLength(k1, k2, coder->uval_buffer[part * nsmpl + smpl]);
-                    }
+                    bits += RecursiveRice_ComputeCodeLength(&coder->uval_buffer[part * nsmpl], nsmpl, k1, k2);
                     if (part == 0) {
                         bits += SRLACODER_RICE_PARAMETER_BITS;
                     } else {
