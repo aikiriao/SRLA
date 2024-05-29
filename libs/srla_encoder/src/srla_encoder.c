@@ -862,7 +862,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
         }
         /* 次数選択のため係数計算 */
         ret = LPCCalculator_CalculateMultipleLPCCoefficients(encoder->lpcc,
-            input, num_samples, pcoefs, max_coef_order, LPC_WINDOWTYPE_WELCH, 1e-6);
+            input, num_samples, pcoefs, max_coef_order, LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER);
         SRLA_ASSERT(ret == LPC_APIRESULT_OK);
 
         minlen = FLT_MAX;
@@ -899,7 +899,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
 
         /* 残差分散の計算 */
         ret = LPCCalculator_CalculateErrorVariances(encoder->lpcc,
-            input, num_samples, error_vars, max_coef_order, LPC_WINDOWTYPE_WELCH, 1e-6);
+            input, num_samples, error_vars, max_coef_order, LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER);
         SRLA_ASSERT(ret == LPC_APIRESULT_OK);
 
         minlen = FLT_MAX;
@@ -1074,7 +1074,7 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
             encoder->buffer_double, num_samples,
             encoder->params_double[ch], encoder->coef_order[ch], encoder->parameter_preset->svr_max_num_iterations,
-            LPC_WINDOWTYPE_WELCH, 1e-6, encoder->parameter_preset->margin_list, encoder->parameter_preset->margin_list_size);
+            LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER, encoder->parameter_preset->margin_list, encoder->parameter_preset->margin_list_size);
         SRLA_ASSERT(ret == LPC_APIRESULT_OK);
         /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
         for (p = 0; p < encoder->coef_order[ch] / 2; p++) {

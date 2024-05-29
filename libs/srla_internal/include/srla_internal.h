@@ -22,6 +22,8 @@
 #define SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH 7
 /* 圧縮をやめて生データを出力するときの閾値（サンプルあたりビット数に占める比率） */
 #define SRLA_ESTIMATED_CODELENGTH_THRESHOLD 0.95f
+/* LPCのリッジ正則化パラメータ */
+#define SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER 1e-5
 
 /* アサートマクロ */
 #ifdef NDEBUG
