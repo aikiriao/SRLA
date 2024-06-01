@@ -905,7 +905,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
         minlen = FLT_MAX;
         for (order = 1; order <= max_coef_order; order++) {
             /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
-            mabse = sqrt(error_vars[order] / 2.0);
+            mabse = 2.0 * sqrt(error_vars[order] / 2.0); /* 符号化で非負整数化するため2倍 */
             /* 残差符号のサイズ */
             len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse, encoder->header.bits_per_sample) * num_samples;
             /* 係数のサイズ */
