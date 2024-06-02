@@ -201,6 +201,8 @@ void SRLAPreemphasisFilter_CalculateCoefficient(
         corr[1] += curr * succ;
         curr = succ;
     }
+    corr[0] += curr * curr;
+    SRLA_ASSERT(corr[0] >= corr[1]);
     /* 分散(=0次相関)で正規化 */
     corr[1] /= corr[0];
 
