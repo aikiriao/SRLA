@@ -91,6 +91,16 @@ struct SRLACoder* SRLACoder_Create(uint32_t max_num_samples, void *work, int32_t
     coder->alloced_by_own = tmp_alloc_by_own;
     coder->work = work;
 
+    /* 分割情報を初期化 */
+    {
+        uint32_t i, j;
+        for (i = 0; i < SRLACODER_LOG2_MAX_NUM_PARTITIONS + 1; i++) {
+            for (j = 0; j < SRLACODER_MAX_NUM_PARTITIONS; j++) {
+                coder->part_mean[i][j] = UINT32_MAX;
+            }
+        }
+    }
+
     return coder;
 }
 
@@ -417,8 +427,9 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
             double part_sum = 0.0;
             for (smpl = 0; smpl < nsmpl; smpl++) {
                 /* uint32の変換結果をキャッシュ */
-                coder->uval_buffer[part * nsmpl + smpl] = SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
-                part_sum += coder->uval_buffer[part * nsmpl + smpl];
+                const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
+                coder->uval_buffer[part * nsmpl + smpl] = uval;
+                part_sum += uval;
             }
             coder->part_mean[max_porder][part] = part_sum / nsmpl;
         }
