@@ -12,7 +12,7 @@ add_executable(${TEST_NAME} main.cpp)
 include_directories(${PROJECT_ROOT_PATH}/libs/lpc/include)
 
 # リンクするライブラリ
-target_link_libraries(${TEST_NAME} gtest gtest_main)
+target_link_libraries(${TEST_NAME} gtest gtest_main fft)
 if (NOT MSVC)
 target_link_libraries(${TEST_NAME} pthread)
 endif()

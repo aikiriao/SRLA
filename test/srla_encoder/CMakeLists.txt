@@ -16,7 +16,7 @@ add_executable(${TEST_NAME}
 include_directories(${PROJECT_ROOT_PATH}/libs/srla_encoder/include)
 
 # リンクするライブラリ
-target_link_libraries(${TEST_NAME} gtest gtest_main byte_array bit_stream lpc srla_internal srla_coder)
+target_link_libraries(${TEST_NAME} gtest gtest_main byte_array bit_stream lpc fft srla_internal srla_coder)
 if (NOT MSVC)
 target_link_libraries(${TEST_NAME} pthread)
 endif()
