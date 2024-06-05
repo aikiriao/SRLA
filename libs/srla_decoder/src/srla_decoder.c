@@ -8,6 +8,7 @@
 #include "srla_coder.h"
 #include "byte_array.h"
 #include "bit_stream.h"
+#include "static_huffman.h"
 #include "lpc.h"
 
 /* 内部状態フラグ */
@@ -29,6 +30,7 @@ struct SRLADecoder {
     int32_t **params_int; /* 各チャンネルのLPC係数(int) */
     uint32_t *rshifts; /* 各チャンネルのLPC係数右シフト量 */
     uint32_t *coef_order; /* 各チャンネルのLPC係数次数 */
+    struct StaticHuffmanTree param_tree; /* 係数のハフマン木 */
     const struct SRLAParameterPreset *parameter_preset; /* パラメータプリセット */
     uint8_t status_flags; /* 内部状態フラグ */
     void *work; /* ワーク領域先頭ポインタ */
@@ -276,6 +278,10 @@ struct SRLADecoder *SRLADecoder_Create(const struct SRLADecoderConfig *config, v
         }
     }
 
+    /* ハフマン木作成 */
+    StaticHuffman_BuildHuffmanTree(g_parameter_frequency_table,
+        sizeof(g_parameter_frequency_table) / sizeof(g_parameter_frequency_table[0]), &decoder->param_tree);
+
     return decoder;
 }
 
@@ -456,7 +462,7 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         BitReader_GetBits(&reader, &decoder->rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
         /* LPC係数 */
         for (i = 0; i < decoder->coef_order[ch]; i++) {
-            BitReader_GetBits(&reader, &uval, SRLA_LPC_COEFFICIENT_BITWIDTH);
+            uval = StaticHuffman_GetCode(&decoder->param_tree, &reader);
             decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
         }
     }

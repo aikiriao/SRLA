@@ -97,6 +97,9 @@ extern "C" {
 /* パラメータプリセット配列 */
 extern const struct SRLAParameterPreset g_srla_parameter_preset[];
 
+/* パラメータ頻度配列 */
+extern const uint32_t g_parameter_frequency_table[256];
+
 #ifdef __cplusplus
 }
 #endif

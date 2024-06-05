@@ -10,6 +10,7 @@
 #include "byte_array.h"
 #include "bit_stream.h"
 #include "lpc.h"
+#include "static_huffman.h"
 #include "srla_coder.h"
 
 /* ダイクストラ法使用時の巨大な重み */
@@ -40,6 +41,7 @@ struct SRLAEncoder {
     int32_t **residual; /* 残差信号 */
     double *buffer_double; /* 信号バッファ(double) */
     uint32_t *partitions_buffer; /* 最適な分割設定の記録領域 */
+    struct StaticHuffmanCodes param_codes; /* パラメータ符号化用Huffman符号 */
     const struct SRLAParameterPreset *parameter_preset; /* パラメータプリセット */
     uint8_t alloced_by_own; /* 領域を自前確保しているか？ */
     void *work; /* ワーク領域先頭ポインタ */
@@ -639,6 +641,14 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
         }
     }
 
+    /* ハフマン符号作成 */
+    {
+        struct StaticHuffmanTree tree;
+        StaticHuffman_BuildHuffmanTree(g_parameter_frequency_table,
+            sizeof(g_parameter_frequency_table) / sizeof(g_parameter_frequency_table[0]), &tree);
+        StaticHuffman_ConvertTreeToCodes(&tree, &encoder->param_codes);
+    }
+
     return encoder;
 }
 
@@ -1133,7 +1143,7 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         for (i = 0; i < encoder->coef_order[ch]; i++) {
             uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][i]);
             SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
-            BitWriter_PutBits(&writer, uval, SRLA_LPC_COEFFICIENT_BITWIDTH);
+            StaticHuffman_PutCode(&encoder->param_codes, &writer, uval);
         }
     }
 

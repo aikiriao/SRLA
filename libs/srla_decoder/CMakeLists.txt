@@ -20,6 +20,7 @@ target_include_directories(${LIB_NAME}
     ${PROJECT_ROOT_PATH}/include
     ${PROJECT_ROOT_PATH}/libs/byte_array/include
     ${PROJECT_ROOT_PATH}/libs/bit_stream/include
+    ${PROJECT_ROOT_PATH}/libs/static_huffman/include
     ${PROJECT_ROOT_PATH}/libs/lpc/include
     ${PROJECT_ROOT_PATH}/libs/srla_internal/include
     ${PROJECT_ROOT_PATH}/libs/srla_coder/include

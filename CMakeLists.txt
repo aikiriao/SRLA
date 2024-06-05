@@ -10,6 +10,7 @@ add_library(${CODEC_LIB_NAME}
     $<TARGET_OBJECTS:srla_coder>
     $<TARGET_OBJECTS:srla_internal>
     $<TARGET_OBJECTS:bit_stream>
+    $<TARGET_OBJECTS:static_huffman>
     $<TARGET_OBJECTS:lpc>
     $<TARGET_OBJECTS:fft>
     )
@@ -22,6 +23,7 @@ add_library(${DECODER_LIB_NAME}
     $<TARGET_OBJECTS:srla_decoder>
     $<TARGET_OBJECTS:srla_coder>
     $<TARGET_OBJECTS:srla_internal>
+    $<TARGET_OBJECTS:static_huffman>
     $<TARGET_OBJECTS:bit_stream>
     )
 

@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.15)
 set(PROJECT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 # プロジェクト名
-project(SRLAEncoder C)
+project(StaticHuffman C)
 
 # ライブラリ名
-set(LIB_NAME srla_encoder)
+set(LIB_NAME static_huffman)
 
 # 静的ライブラリ指定
 add_library(${LIB_NAME} STATIC)
@@ -18,12 +18,7 @@ add_subdirectory(src)
 target_include_directories(${LIB_NAME}
     PRIVATE
     ${PROJECT_ROOT_PATH}/include
-    ${PROJECT_ROOT_PATH}/libs/byte_array/include
     ${PROJECT_ROOT_PATH}/libs/bit_stream/include
-    ${PROJECT_ROOT_PATH}/libs/static_huffman/include
-    ${PROJECT_ROOT_PATH}/libs/lpc/include
-    ${PROJECT_ROOT_PATH}/libs/srla_internal/include
-    ${PROJECT_ROOT_PATH}/libs/srla_coder/include
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
