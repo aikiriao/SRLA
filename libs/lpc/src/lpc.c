@@ -410,25 +410,20 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
 
     /* 再帰処理 */
     for (k = 1; k < coef_order; k++) {
+        const double *a_vec = a_vecs[k - 1];
+
         gamma = 0.0;
         for (i = 0; i < k + 1; i++) {
-            gamma += a_vecs[k - 1][i] * auto_corr[k + 1 - i];
+            gamma += a_vec[i] * auto_corr[k + 1 - i];
         }
         gamma /= -error_vars[k];
         error_vars[k + 1] = error_vars[k] * (1.0 - gamma * gamma);
         /* 誤差分散（パワー）は非負 */
         assert(error_vars[k + 1] >= 0.0);
 
-        /* u_vec, v_vecの更新 */
-        for (i = 0; i < k; i++) {
-            u_vec[i + 1] = v_vec[k - i] = a_vecs[k - 1][i + 1];
-        }
-        u_vec[0] = 1.0; u_vec[k + 1] = 0.0;
-        v_vec[0] = 0.0; v_vec[k + 1] = 1.0;
-
         /* 係数の更新 */
         for (i = 0; i < k + 2; i++) {
-            a_vecs[k][i] = u_vec[i] + gamma * v_vec[i];
+            a_vecs[k][i] = a_vec[i] + gamma * a_vec[k + 1 - i];
         }
         /* PARCOR係数は反射係数の符号反転 */
         parcor_coef[k] = -gamma;
