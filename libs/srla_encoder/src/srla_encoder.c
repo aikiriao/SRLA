@@ -843,6 +843,12 @@ static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint
     return (1.0 + k1) * (1.0 - k1factor) + (1.0 + k2 + (1.0 / (1.0 - k2factor))) * k1factor;
 }
 
+static double SRLAEncoder_ComputeInverseSquaredSumWelchWindow(const uint32_t window_size)
+{
+    const double n = window_size - 1;
+    return (15 * (n - 1) * (n - 1) * (n - 1)) / (8 * n * (n - 2) * (n * n - 2 * n + 2));
+}
+
 /* 最適なLPC次数の選択 */
 static SRLAError SRLAEncoder_SelectBestLPCOrder(
     struct SRLAEncoder *encoder,
@@ -903,13 +909,18 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
     case SRLA_LPC_ORDER_DECISION_TACTICS_BRUTEFORCE_ESTIMATION:
     {
         LPCApiResult ret;
-        uint32_t tmp_best_order = 0;
+        uint32_t i, tmp_best_order = 0;
         double error_vars[SRLA_MAX_COEFFICIENT_ORDER + 1];
+        const double var_norm_factor = SRLAEncoder_ComputeInverseSquaredSumWelchWindow(num_samples);
 
         /* 残差分散の計算 */
         ret = LPCCalculator_CalculateErrorVariances(encoder->lpcc,
             input, num_samples, error_vars, max_coef_order, LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER);
         SRLA_ASSERT(ret == LPC_APIRESULT_OK);
+
+        for (i = 0; i <= max_coef_order; i++) {
+            error_vars[i] *= var_norm_factor;
+        }
 
         /* 最小推定符号長を与える係数次数の探索 */
         {
