@@ -5,8 +5,10 @@
 #include <assert.h>
 
 /* インラインキーワードを定義 */
-#if defined(_MSC_VER) || defined(__GNUC__)
+#if defined(_MSC_VER)
 #define FFT_INLINE inline
+#elif defined(__GNUC__)
+#define FFT_INLINE __inline__
 #else
 #define FFT_INLINE
 #endif
