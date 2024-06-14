@@ -46,7 +46,6 @@ struct LPCCalculator {
     double *v_vec; /* 計算用ベクトル4 */
     double **r_mat; /* 補助関数法/Burg法で使用する行列（(max_order + 1)次） */
     double *auto_corr; /* 標本自己相関 */
-    double **lpc_coefs; /* 各次数のLPC係数ベクトル */
     double *parcor_coef; /* PARCOR係数ベクトル */
     double *error_vars; /* 残差分散 */
     double *buffer; /* 入力信号のバッファ領域 */
@@ -176,17 +175,6 @@ struct LPCCalculator* LPCCalculator_Create(const struct LPCCalculatorConfig *con
     /* 標本自己相関の領域割当 */
     lpcc->auto_corr = (double *)work_ptr;
     work_ptr += sizeof(double) * (config->max_order + 1);
-
-    /* LPC係数ベクトルの領域割当 */
-    {
-        uint32_t ord;
-        lpcc->lpc_coefs = (double **)work_ptr;
-        work_ptr += sizeof(double *) * (config->max_order + 1);
-        for (ord = 0; ord < config->max_order + 1; ord++) {
-            lpcc->lpc_coefs[ord] = (double *)work_ptr;
-            work_ptr += sizeof(double) * (config->max_order + 1);
-        }
-    }
 
     /* PARCOR係数ベクトルの領域割当 */
     lpcc->parcor_coef = (double *)work_ptr;
@@ -359,7 +347,7 @@ static LPCError LPC_CalculateAutoCorrelationByFFT(
 
 /* Levinson-Durbin再帰計算 */
 static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
-    const double *auto_corr, uint32_t coef_order, double **lpc_coefs, double *parcor_coef, double *error_vars)
+    const double *auto_corr, uint32_t coef_order, double *parcor_coef, double *error_vars)
 {
     uint32_t k, i;
     double gamma; /* 反射係数 */
@@ -370,7 +358,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
     double *v_vec = lpcc->v_vec;
 
     /* 引数チェック */
-    if ((lpcc == NULL) || (auto_corr == NULL) || (lpc_coefs == NULL) || (parcor_coef == NULL)) {
+    if ((lpcc == NULL) || (auto_corr == NULL) || (parcor_coef == NULL)) {
         return LPC_ERROR_INVALID_ARGUMENT;
     }
 
@@ -381,22 +369,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
             parcor_coef[i] = 0.0;
             error_vars[i] = auto_corr[0]; /* 残差分散は入力と同一 */
         }
-        for (k = 0; k < coef_order; k++) {
-            for (i = 0; i < coef_order + 1; i++) {
-                lpc_coefs[k][i] = 0.0;
-            }
-        }
         return LPC_ERROR_OK;
-    }
-
-    /* 初期化 */
-    for (i = 0; i < coef_order + 2; i++) {
-        u_vec[i] = v_vec[i] = 0.0;
-    }
-    for (k = 0; k < coef_order + 1; k++) {
-        for (i = 0; i < coef_order + 2; i++) {
-            a_vecs[k][i] = 0.0;
-        }
     }
 
     /* 最初のステップの係数をセット */
@@ -429,11 +402,6 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
         parcor_coef[k] = -gamma;
         /* PARCOR係数の絶対値は1未満（収束条件） */
         assert(fabs(gamma) < 1.0);
-    }
-
-    /* 結果を取得 */
-    for (k = 0; k < coef_order; k++) {
-        memcpy(lpc_coefs[k], &a_vecs[k][1], sizeof(double) * coef_order);
     }
 
     return LPC_ERROR_OK;
@@ -475,11 +443,6 @@ static LPCError LPC_CalculateCoef(
         for (i = 0; i < coef_order + 1; i++) {
             lpcc->parcor_coef[i] = 0.0;
         }
-        for (k = 0; k < coef_order + 1; k++) {
-            for (i = 0; i < coef_order + 1; i++) {
-                lpcc->lpc_coefs[k][i]  = 0.0;
-            }
-        }
         return LPC_ERROR_OK;
     }
 
@@ -487,7 +450,7 @@ static LPCError LPC_CalculateCoef(
     lpcc->auto_corr[0] *= (1.0 + regular_term);
 
     /* 再帰計算を実行 */
-    if (LPC_LevinsonDurbinRecursion(lpcc, lpcc->auto_corr, coef_order, lpcc->lpc_coefs, lpcc->parcor_coef, lpcc->error_vars) != LPC_ERROR_OK) {
+    if (LPC_LevinsonDurbinRecursion(lpcc, lpcc->auto_corr, coef_order, lpcc->parcor_coef, lpcc->error_vars) != LPC_ERROR_OK) {
         return LPC_ERROR_NG;
     }
 
@@ -521,7 +484,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     }
 
     /* 計算成功時は結果をコピー */
-    memmove(lpc_coef, lpcc->lpc_coefs[coef_order - 1], sizeof(double) * coef_order);
+    memmove(lpc_coef, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
 
     return LPC_APIRESULT_OK;
 }
@@ -556,7 +519,7 @@ LPCApiResult LPCCalculator_CalculateMultipleLPCCoefficients(
 
     /* 計算成功時は結果をコピー */
     for (k = 0; k < max_coef_order; k++) {
-        memmove(lpc_coefs[k], lpcc->lpc_coefs[k], sizeof(double) * max_coef_order);
+        memmove(lpc_coefs[k], &lpcc->a_vecs[k][1], sizeof(double) * max_coef_order);
     }
 
     return LPC_APIRESULT_OK;
@@ -784,11 +747,11 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
 
 /* 補助関数法による係数計算 */
 static LPCError LPC_CalculateCoefAF(
-        struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
+        struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
         const uint32_t max_num_iteration, const double obj_epsilon, LPCWindowType window_type, double regular_term)
 {
     uint32_t itr, i;
-    double *a_vec = lpcc->a_vecs[0];
+    double *a_vec = lpcc->work_buffer;
     double *r_vec = lpcc->u_vec;
     double **r_mat = lpcc->r_mat;
     double obj_value, prev_obj_value;
@@ -798,13 +761,13 @@ static LPCError LPC_CalculateCoefAF(
     if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, regular_term)) != LPC_ERROR_OK) {
         return err;
     }
-    memcpy(a_vec, lpcc->lpc_coefs[coef_order - 1], sizeof(double) * coef_order);
+    memcpy(coef, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
 
     /* 0次自己相関（信号の二乗和）が小さい場合
     * => 係数は全て0として無音出力システムを予測 */
     if (fabs(lpcc->auto_corr[0]) < FLT_EPSILON) {
         for (i = 0; i < coef_order + 1; i++) {
-            lpcc->lpc_coefs[coef_order - 1][i] = 0.0;
+            lpcc->a_vecs[coef_order - 1][i] = 0.0;
         }
         return LPC_ERROR_OK;
     }
@@ -821,13 +784,13 @@ static LPCError LPC_CalculateCoefAF(
                 r_mat, (int32_t)coef_order, lpcc->v_vec)) == LPC_ERROR_SINGULAR_MATRIX) {
             /* 特異行列になるのは理論上入力が全部0のとき。係数を0クリアして終わる */
             for (i = 0; i < coef_order; i++) {
-                lpcc->lpc_coefs[coef_order - 1][i] = 0.0;
+                lpcc->a_vecs[coef_order - 1][i] = 0.0;
             }
             return LPC_ERROR_OK;
         }
         /* コレスキー分解で r_mat @ avec = r_vec を解く */
         if ((err = LPC_SolveByCholeskyDecomposition(
-                (const double * const *)r_mat, (int32_t)coef_order, a_vec, r_vec, lpcc->v_vec)) != LPC_ERROR_OK) {
+                (const double * const *)r_mat, (int32_t)coef_order, coef, r_vec, lpcc->v_vec)) != LPC_ERROR_OK) {
             return err;
         }
         assert(err == LPC_ERROR_OK);
@@ -837,9 +800,6 @@ static LPCError LPC_CalculateCoefAF(
         }
         prev_obj_value = obj_value;
     }
-
-    /* 解を設定 */
-    memmove(lpcc->lpc_coefs[coef_order - 1], a_vec, sizeof(double) * coef_order);
 
     return LPC_ERROR_OK;
 }
@@ -861,20 +821,17 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order,
+    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef, coef_order,
             max_num_iteration, 1e-8, window_type, regular_term) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
-
-    /* 計算成功時は結果をコピー */
-    memmove(coef, lpcc->lpc_coefs[coef_order - 1], sizeof(double) * coef_order);
 
     return LPC_APIRESULT_OK;
 }
 
 /* Burg法による係数計算 */
 static LPCError LPC_CalculateCoefBurg(
-        struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order)
+        struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, double *coef, uint32_t coef_order)
 {
 #if 1
     uint32_t i, j, k;
@@ -931,10 +888,10 @@ static LPCError LPC_CalculateCoefBurg(
     }
 
     /* 解を設定 */
-    memmove(lpcc->lpc_coefs[coef_order - 1], &a_vec[1], sizeof(double) * coef_order);
+    memcpy(coef, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
 #else
     uint32_t i, k;
-    double *a_vec = lpcc->a_vec;
+    double *a_vec = lpcc->a_vecs[0];
     double *f_vec, *b_vec;
     double Dk, mu;
     double tmp1, tmp2;
@@ -984,7 +941,7 @@ static LPCError LPC_CalculateCoefBurg(
     }
 
     /* 係数コピー */
-    memcpy(lpcc->lpc_coef, &a_vec[1], sizeof(double) * coef_order);
+    memcpy(a_vec, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
 
     free(b_vec);
     free(f_vec);
@@ -1008,12 +965,9 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsBurg(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoefBurg(lpcc, data, num_samples, coef_order) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoefBurg(lpcc, data, num_samples, coef, coef_order) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
-
-    /* 計算成功時は結果をコピー */
-    memmove(coef, lpcc->lpc_coefs[coef_order - 1], sizeof(double) * coef_order);
 
     return LPC_APIRESULT_OK;
 }
@@ -1068,16 +1022,15 @@ static double LPCSVR_CalculateRGRMeanCodeLength(double mean_abs_error, uint32_t 
 
 /* SVRによる係数計算 */
 static LPCError LPC_CalculateCoefSVR(
-    struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
+    struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
     const uint32_t max_num_iteration, const double obj_epsilon, LPCWindowType window_type,
     double regular_term, const double *margin_list, uint32_t margin_list_size)
 {
 #define BITS_PER_SAMPLE 16
     uint32_t itr, i, j, smpl;
-    double *coef = lpcc->a_vecs[0];
     double *r_vec = lpcc->u_vec;
     double *low = lpcc->v_vec;
-    double *best_coef = lpcc->lpc_coefs[0];
+    double *best_coef = lpcc->work_buffer;
     double *delta = lpcc->parcor_coef;
     double *init_coef = lpcc->auto_corr;
     double **cov = lpcc->r_mat;
@@ -1097,14 +1050,15 @@ static LPCError LPC_CalculateCoefSVR(
     /* 0次自己相関（信号の二乗和）が小さい場合
     * => 係数は全て0として無音出力システムを予測 */
     if (fabs(lpcc->auto_corr[0]) < FLT_EPSILON) {
-        for (i = 0; i < coef_order + 1; i++) {
-            lpcc->lpc_coefs[coef_order - 1][i] = 0.0;
+        for (i = 0; i < coef_order; i++) {
+            coef[i] = 0.0;
         }
         return LPC_ERROR_OK;
     }
 
     /* 学習しない場合はLevinson-Durbin法の結果をそのまま採用 */
     if (max_num_iteration == 0) {
+        memcpy(coef, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
         return LPC_ERROR_OK;
     }
 
@@ -1120,13 +1074,14 @@ static LPCError LPC_CalculateCoefSVR(
     if ((err = LPC_CholeskyDecomposition(cov, (int32_t)coef_order, low)) == LPC_ERROR_SINGULAR_MATRIX) {
         /* 特異行列になるのは理論上入力が全部0のとき。係数を0クリアして終わる */
         for (i = 0; i < coef_order; i++) {
-            lpcc->lpc_coefs[coef_order - 1][i] = 0.0;
+            coef[i] = 0.0;
         }
         return LPC_ERROR_OK;
     }
 
     /* 初期値をLevinson-Durbin法の係数に設定 */
-    memcpy(init_coef, lpcc->lpc_coefs[coef_order - 1], sizeof(double) * coef_order);
+    memcpy(init_coef, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
+    memcpy(best_coef, init_coef, sizeof(double) * coef_order);
 
     /* TODO: 係数は順序反転した方がresidualの計算が早そう（要検証） */
 
@@ -1175,8 +1130,7 @@ static LPCError LPC_CalculateCoefSVR(
         }
     }
 
-    /* 解を設定 */
-    memmove(lpcc->lpc_coefs[coef_order - 1], best_coef, sizeof(double) * coef_order);
+    memcpy(coef, best_coef, sizeof(double) * coef_order);
 
     return LPC_ERROR_OK;
 #undef BITS_PER_SAMPLE
@@ -1201,13 +1155,10 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsSVR(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoefSVR(lpcc, data, num_samples, coef_order,
+    if (LPC_CalculateCoefSVR(lpcc, data, num_samples, coef, coef_order,
             max_num_iteration, 1e-8, window_type, regular_term, margin_list, margin_list_size) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
-
-    /* 計算成功時は結果をコピー */
-    memmove(coef, lpcc->lpc_coefs[coef_order - 1], sizeof(double) * coef_order);
 
     return LPC_APIRESULT_OK;
 }
@@ -1325,7 +1276,7 @@ static LPCError LPC_ConvertLPCtoPARCORDouble(
     assert(coef_order <= lpcc->max_order);
 
     /* 作業領域を割り当て */
-    tmplpc_coef = lpcc->lpc_coefs[0];
+    tmplpc_coef = lpcc->work_buffer;
     a_vec = lpcc->a_vecs[0];
 
     memcpy(tmplpc_coef, lpc_coef, sizeof(double) * coef_order);
