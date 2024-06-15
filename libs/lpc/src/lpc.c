@@ -376,6 +376,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
     a_vecs[0][0] = 1.0;
     error_vars[0] = auto_corr[0];
     a_vecs[0][1] = - auto_corr[1] / auto_corr[0];
+    a_vecs[0][2] = 0.0;
     parcor_coef[0] = auto_corr[1] / error_vars[0];
     error_vars[1] = error_vars[0] + auto_corr[1] * a_vecs[0][1];
     u_vec[0] = 1.0; u_vec[1] = 0.0;
@@ -398,6 +399,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
         for (i = 0; i < k + 2; i++) {
             a_vecs[k][i] = a_vec[i] + gamma * a_vec[k + 1 - i];
         }
+        a_vecs[k][k + 2] = 0.0;
         /* PARCOR係数は反射係数の符号反転 */
         parcor_coef[k] = -gamma;
         /* PARCOR係数の絶対値は1未満（収束条件） */
