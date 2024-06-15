@@ -302,6 +302,11 @@ static int32_t SRLAEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTes
 
     /* 一致確認 */
     for (ch = 0; ch < num_channels; ch++) {
+        /* バイナリ一致していたら次へ */
+        if (memcmp(input[ch], output[ch], sizeof(int32_t) * num_samples) == 0) {
+            continue;
+        }
+        /* 間違っている箇所の確認 */
         for (smpl = 0; smpl < num_samples; smpl++) {
             if (input[ch][smpl] != output[ch][smpl]) {
                 printf("%5d %12d vs %12d \n", smpl, input[ch][smpl], output[ch][smpl]);
