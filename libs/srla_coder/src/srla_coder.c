@@ -213,22 +213,17 @@ static uint32_t Rice_GetCode(struct BitStream *stream, uint32_t k)
     do {\
         uint32_t __quot;\
         \
-        SRLA_ASSERT(stream != NULL);\
-        SRLA_ASSERT(uval != NULL);\
-        SRLA_ASSERT(k1 == (k2 + 1));\
+        SRLA_ASSERT((stream) != NULL);\
+        SRLA_ASSERT((uval) != NULL);\
+        SRLA_ASSERT((k1) == ((k2) + 1));\
         \
         /* 商部の取得 */\
-        BitReader_GetZeroRunLength(stream, &__quot);\
+        BitReader_GetZeroRunLength((stream), &__quot);\
         \
-        if (!__quot) {\
-            /* ランレングス=0で1段目のパラメータで復号 */\
-            BitReader_GetBits(stream, uval, k1);\
-            break;\
-        }\
-        \
-        /* ランレングスが1以上ならば2段目のパラメータで復号 */\
-        BitReader_GetBits(stream, uval, k2);\
-        (*uval) |= ((__quot + 1) << k2);\
+        /* 剰余部の取得 */\
+        BitReader_GetBits((stream), (uval), !(__quot) ? (k1) : (k2));\
+        __quot = !(__quot) ? ~0U : __quot;\
+        (*uval) |= ((__quot + 1) << (k2));\
     } while (0);
 #else
 static void RecursiveRice_GetCode(struct BitStream *stream, uint32_t k1, uint32_t k2, uint32_t *uval)
@@ -242,16 +237,10 @@ static void RecursiveRice_GetCode(struct BitStream *stream, uint32_t k1, uint32_
     /* 商部の取得 */
     BitReader_GetZeroRunLength(stream, &quot);
 
-    if (!quot) {
-        /* ランレングス=0で1段目のパラメータで復号 */
-        BitReader_GetBits(stream, uval, k1);
-        return;
-    }
-
-    /* ランレングスが1以上ならば2段目のパラメータで復号 */
-
-    BitReader_GetBits(stream, uval, k2);
-    (*uval) |= ((quot + 1) << k2);
+    /* 剰余部の取得 */
+    BitReader_GetBits(stream, uval, !quot ? k1 : k2);
+    quot = !(quot) ? ~0U : quot;
+    (*uval) |= ((quot + 1) << (k2));
 }
 #endif
 
