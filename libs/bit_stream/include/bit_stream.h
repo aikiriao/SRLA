@@ -255,7 +255,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         assert((nbits) <= 32);\
         \
         /* 0ビット出力は何もせず終了 */\
-        if ((nbits) == 0) { break; }\
+        if (!(nbits)) { break; }\
         \
         /* valの上位ビットから順次出力 */\
         __nbits = (nbits);\
@@ -321,7 +321,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         assert((nbits) <= 32);\
         \
         /* 0ビット取得は0を返す */\
-        if ((nbits) == 0) {\
+        if (!(nbits)) {\
             (*(val)) = 0;\
             break;\
         }\
@@ -375,7 +375,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         (stream)->bit_count -= __run;\
         \
         /* バッファが空の時 */\
-        while ((stream)->bit_count == 0) {\
+        while (!(stream)->bit_count) {\
             /* 1バイト読み込み再度計測 */\
             uint32_t __tmp_run;\
             \

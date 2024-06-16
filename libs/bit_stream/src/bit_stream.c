@@ -184,7 +184,7 @@ void BitWriter_PutBits(struct BitStream *stream, uint32_t val, uint32_t nbits)
     assert(nbits <= 32);
 
     /* 0ビット出力は何もせず終了 */
-    if (nbits == 0) { return; }
+    if (!nbits) { return; }
 
     /* valの上位ビットから順次出力 */
     if (nbits >= stream->bit_count) {
@@ -250,7 +250,7 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
     assert(nbits <= 32);
 
     /* 0ビット取得は0を返す */
-    if (nbits == 0) {
+    if (!nbits) {
         (*val) = 0;
         return;
     }
@@ -304,7 +304,7 @@ void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength)
     stream->bit_count -= run;
 
     /* バッファが空の時 */
-    while (stream->bit_count == 0) {
+    while (!stream->bit_count) {
         /* 1バイト読み込み再度計測 */
         uint32_t tmp_run;
 
