@@ -562,6 +562,53 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
     }
 }
 
+static void SRLACoder_DecodeRecursiveRice(
+    struct BitStream *stream, int32_t *data, uint32_t num_samples, const uint32_t k1, const uint32_t k2)
+{
+    SRLA_ASSERT(stream != NULL);
+    SRLA_ASSERT(data != NULL);
+    SRLA_ASSERT(k1 == (k2 + 1));
+
+    /* 特定のk2パラメータのときのデコード処理を定義 */
+#define DEFINE_DECODING_PROCEDURE_CASE(k2_param, stream, data, num_samples)\
+    case (k2_param):\
+        {\
+            uint32_t uval__;\
+            while ((num_samples)--) {\
+                RecursiveRice_GetCode((stream), ((k2_param)+1), (k2_param), &uval__);\
+                *((data)++) = SRLAUTILITY_UINT32_TO_SINT32(uval__);\
+            }\
+        }\
+        break;
+
+    /* パラメータで場合分け */
+    switch (k2) {
+        DEFINE_DECODING_PROCEDURE_CASE(  0, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  1, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  2, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  3, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  4, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  5, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  6, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  7, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  8, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE(  9, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE( 10, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE( 11, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE( 12, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE( 13, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE( 14, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE( 15, stream, data, num_samples);
+        DEFINE_DECODING_PROCEDURE_CASE( 16, stream, data, num_samples);
+    default:
+        while (num_samples--) {
+            uint32_t uval;
+            RecursiveRice_GetCode(stream, k2 + 1, k2, &uval);
+            *(data++) = SRLAUTILITY_UINT32_TO_SINT32(uval);
+        }
+    }
+}
+
 /* 符号付き整数配列の復号 */
 static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, int32_t *data, uint32_t num_samples)
 {
@@ -593,7 +640,7 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
     break;
     case SRLACODER_CODE_TYPE_RECURSIVE_RICE:
     {
-        uint32_t k1, k2;
+        uint32_t k2;
         for (part = 0; part < (1U << best_porder); part++) {
             if (part == 0) {
                 BitReader_GetBits(stream, &k2, SRLACODER_RICE_PARAMETER_BITS);
@@ -601,12 +648,7 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
                 const uint32_t udiff = Gamma_GetCode(stream);
                 k2 = (uint32_t)((int32_t)k2 + SRLAUTILITY_UINT32_TO_SINT32(udiff));
             }
-            k1 = k2 + 1;
-            for (smpl = 0; smpl < nsmpl; smpl++) {
-                uint32_t uval;
-                RecursiveRice_GetCode(stream, k1, k2, &uval);
-                data[part * nsmpl + smpl] = SRLAUTILITY_UINT32_TO_SINT32(uval);
-            }
+            SRLACoder_DecodeRecursiveRice(stream, &data[part * nsmpl], nsmpl, k2 + 1, k2);
         }
     }
     break;
