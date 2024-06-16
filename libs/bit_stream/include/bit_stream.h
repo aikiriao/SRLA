@@ -316,12 +316,6 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         /* 入力可能な最大ビット数を越えてないか確認 */\
         assert((nbits) <= 32);\
         \
-        /* 0ビット取得は0を返す */\
-        if (!(nbits)) {\
-            (*(val)) = 0;\
-            break;\
-        }\
-        \
         /* バッファから取り出す */\
         if ((nbits) <= (stream)->bit_count) {\
             (stream)->bit_count -= (nbits);\

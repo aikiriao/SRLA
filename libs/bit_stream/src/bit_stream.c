@@ -249,12 +249,6 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
     /* 入力可能な最大ビット数を越えてないか確認 */
     assert(nbits <= 32);
 
-    /* 0ビット取得は0を返す */
-    if (!nbits) {
-        (*val) = 0;
-        return;
-    }
-
     /* バッファから取り出す */
     if (nbits <= stream->bit_count) {
         stream->bit_count -= nbits;
