@@ -121,7 +121,6 @@ void SRLALPC_Synthesize(
 {
     int32_t smpl, ord;
     const int32_t half = 1 << (coef_rshift - 1); /* 固定小数の0.5 */
-    int32_t predict;
 
     /* 引数チェック */
     SRLA_ASSERT(data != NULL);
@@ -175,6 +174,43 @@ void SRLALPC_Synthesize(
                 predict[i] += (coef[ord + 4] * data[smpl - 7 + i + 4]);
                 predict[i] += (coef[ord + 5] * data[smpl - 7 + i + 5]);
                 predict[i] += (coef[ord + 6] * data[smpl - 7 + i + 6]);
+                data[smpl + i] -= (predict[i] >> coef_rshift);
+            }
+        }
+    } else if (coef_order >= 4) {
+        uint32_t i;
+        __m128i vcoef[SRLA_MAX_COEFFICIENT_ORDER];
+        /* 係数をベクトル化 */
+        for (i = 0; i < coef_order; i++) {
+            vcoef[i] = _mm_set1_epi32(coef[i]);
+        }
+        for (; smpl < num_samples - coef_order - 4; smpl += 4) {
+            /* 4サンプル並列に処理 */
+            DECLALIGN(16) int32_t predict[4];
+            __m128i vdata;
+            __m128i vpred = _mm_set1_epi32(half);
+            for (ord = 0; ord < (int32_t)coef_order - 3 - 4; ord += 4) {
+                const int32_t *dat = &data[smpl - coef_order + ord];
+                vdata = _mm_loadu_epi32(&dat[0]);
+                vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 0], vdata));
+                vdata = _mm_loadu_epi32(&dat[1]);
+                vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 1], vdata));
+                vdata = _mm_loadu_epi32(&dat[2]);
+                vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 2], vdata));
+                vdata = _mm_loadu_epi32(&dat[3]);
+                vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 3], vdata));
+            }
+            for (; ord < coef_order - 3; ord++) {
+                vdata = _mm_loadu_epi32(&data[smpl - coef_order + ord]);
+                vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
+            }
+            _mm_store_si128(&predict, vpred);
+
+            /* ord = coef_order - 3 */
+            for (i = 0; i < 4; i++) {
+                predict[i] += (coef[ord + 0] * data[smpl - 3 + i + 0]);
+                predict[i] += (coef[ord + 1] * data[smpl - 3 + i + 1]);
+                predict[i] += (coef[ord + 2] * data[smpl - 3 + i + 2]);
                 data[smpl + i] -= (predict[i] >> coef_rshift);
             }
         }
