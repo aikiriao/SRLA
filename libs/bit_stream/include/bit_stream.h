@@ -40,15 +40,11 @@ struct BitStream {
 /* ビルトイン関数を使用 */
 #define BITSTREAM_NLZ(x) (((x) > 0) ? (uint32_t)__builtin_clz(x) : 32U)
 #elif defined(_MSC_VER)
+#include <intrin.h>
 /* ビルトイン関数を使用 */
 __inline uint32_t BITSTREAM_NLZ(uint32_t x)
 {
-    unsigned long result;
-    if (!x) {
-        return 32U;
-    }
-    _BitScanReverse(&result, x);
-    return result ^ 31U;
+    return __lzcnt(x);
 }
 #else
 /* ソフトウェア実装を使用 */
