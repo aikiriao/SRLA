@@ -85,84 +85,84 @@ TEST(SRLACoderTest, RecursiveRiceTest)
         /* 0を4回出力 */
         memset(data, 0, sizeof(data));
         BitWriter_Open(&strm, data, sizeof(data));
-        RecursiveRice_PutCode(&strm, 1, 1, 0);
-        RecursiveRice_PutCode(&strm, 1, 1, 0);
-        RecursiveRice_PutCode(&strm, 1, 1, 0);
-        RecursiveRice_PutCode(&strm, 1, 1, 0);
+        RecursiveRice_PutCode(&strm, 1, 0, 0);
+        RecursiveRice_PutCode(&strm, 1, 0, 0);
+        RecursiveRice_PutCode(&strm, 1, 0, 0);
+        RecursiveRice_PutCode(&strm, 1, 0, 0);
         BitStream_Close(&strm);
 
         /* 取得 */
         BitReader_Open(&strm, data, sizeof(data));
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(0, code);
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(0, code);
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(0, code);
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(0, code);
         BitStream_Close(&strm);
 
         /* 1を4回出力 */
         memset(data, 0, sizeof(data));
         BitWriter_Open(&strm, data, sizeof(data));
-        RecursiveRice_PutCode(&strm, 1, 1, 1);
-        RecursiveRice_PutCode(&strm, 1, 1, 1);
-        RecursiveRice_PutCode(&strm, 1, 1, 1);
-        RecursiveRice_PutCode(&strm, 1, 1, 1);
+        RecursiveRice_PutCode(&strm, 1, 0, 1);
+        RecursiveRice_PutCode(&strm, 1, 0, 1);
+        RecursiveRice_PutCode(&strm, 1, 0, 1);
+        RecursiveRice_PutCode(&strm, 1, 0, 1);
         BitStream_Close(&strm);
 
         /* 取得 */
         BitReader_Open(&strm, data, sizeof(data));
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(1, code);
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(1, code);
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(1, code);
-        RecursiveRice_GetCode(&strm, 1, 1, &code);
+        RecursiveRice_GetCode(&strm, 1, 0, &code);
         EXPECT_EQ(1, code);
         BitStream_Close(&strm);
 
         /* パラメータを変えて0を4回出力 */
         memset(data, 0, sizeof(data));
         BitWriter_Open(&strm, data, sizeof(data));
-        RecursiveRice_PutCode(&strm, 2, 2, 0);
-        RecursiveRice_PutCode(&strm, 2, 2, 0);
-        RecursiveRice_PutCode(&strm, 2, 2, 0);
-        RecursiveRice_PutCode(&strm, 2, 2, 0);
+        RecursiveRice_PutCode(&strm, 2, 1, 0);
+        RecursiveRice_PutCode(&strm, 2, 1, 0);
+        RecursiveRice_PutCode(&strm, 2, 1, 0);
+        RecursiveRice_PutCode(&strm, 2, 1, 0);
         BitStream_Close(&strm);
 
         /* 取得 */
         BitReader_Open(&strm, data, sizeof(data));
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(0, code);
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(0, code);
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(0, code);
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(0, code);
         BitStream_Close(&strm);
 
         /* パラメータを変えて3を4回出力 */
         memset(data, 0, sizeof(data));
         BitWriter_Open(&strm, data, sizeof(data));
-        RecursiveRice_PutCode(&strm, 2, 2, 3);
-        RecursiveRice_PutCode(&strm, 2, 2, 3);
-        RecursiveRice_PutCode(&strm, 2, 2, 3);
-        RecursiveRice_PutCode(&strm, 2, 2, 3);
+        RecursiveRice_PutCode(&strm, 2, 1, 3);
+        RecursiveRice_PutCode(&strm, 2, 1, 3);
+        RecursiveRice_PutCode(&strm, 2, 1, 3);
+        RecursiveRice_PutCode(&strm, 2, 1, 3);
         BitStream_Close(&strm);
 
         /* 取得 */
         BitReader_Open(&strm, data, sizeof(data));
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(3, code);
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(3, code);
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(3, code);
-        RecursiveRice_GetCode(&strm, 2, 2, &code);
+        RecursiveRice_GetCode(&strm, 2, 1, &code);
         EXPECT_EQ(3, code);
         BitStream_Close(&strm);
     }
