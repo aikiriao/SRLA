@@ -369,6 +369,11 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
             parcor_coef[i] = 0.0;
             error_vars[i] = auto_corr[0]; /* 残差分散は入力と同一 */
         }
+        for (k = 0; k < coef_order; k++) {
+            for (i = 0; i < coef_order + 2; i++) {
+                lpcc->a_vecs[k][i] = 0.0;
+            }
+        }
         return LPC_ERROR_OK;
     }
 
