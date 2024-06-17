@@ -441,7 +441,7 @@ static LPCError LPC_CalculateCoef(
     /* 入力サンプル数が少ないときは、係数が発散することが多数
     * => 無音データとして扱い、係数はすべて0とする */
     if (num_samples < coef_order) {
-        uint32_t i, k;
+        uint32_t i;
         for (i = 0; i < coef_order + 1; i++) {
             lpcc->parcor_coef[i] = 0.0;
         }
