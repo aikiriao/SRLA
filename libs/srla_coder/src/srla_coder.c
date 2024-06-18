@@ -211,19 +211,18 @@ static uint32_t Rice_GetCode(struct BitStream *stream, uint32_t k)
 #if defined(SRLACODER_USE_MACROS)
 #define RecursiveRice_GetCode(stream, k1, k2, uval)\
     do {\
-        uint32_t __quot;\
+        uint32_t quot__;\
         \
         SRLA_ASSERT((stream) != NULL);\
         SRLA_ASSERT((uval) != NULL);\
         SRLA_ASSERT((k1) == ((k2) + 1));\
         \
         /* 商部の取得 */\
-        BitReader_GetZeroRunLength((stream), &__quot);\
+        BitReader_GetZeroRunLength((stream), &quot__);\
         \
         /* 剰余部の取得 */\
-        BitReader_GetBits((stream), (uval), !(__quot) ? (k1) : (k2));\
-        __quot = !(__quot) ? ~0U : __quot;\
-        (*uval) |= ((__quot + 1) << (k2));\
+        BitReader_GetBits(stream, uval, (k2) + !(quot__));\
+        (*uval) |= ((quot__ + !!(quot__)) << (k2));\
     } while (0);
 #else
 static void RecursiveRice_GetCode(struct BitStream *stream, uint32_t k1, uint32_t k2, uint32_t *uval)
@@ -238,9 +237,8 @@ static void RecursiveRice_GetCode(struct BitStream *stream, uint32_t k1, uint32_
     BitReader_GetZeroRunLength(stream, &quot);
 
     /* 剰余部の取得 */
-    BitReader_GetBits(stream, uval, !quot ? k1 : k2);
-    quot = !(quot) ? ~0U : quot;
-    (*uval) |= ((quot + 1) << (k2));
+    BitReader_GetBits(stream, uval, k2 + !(quot));
+    (*uval) |= ((quot + !!(quot)) << (k2));
 }
 #endif
 
