@@ -39,11 +39,11 @@
 /* ビルトイン関数を使用 */
 #define SRLAUTILITY_NLZ(x) (((x) > 0) ? (uint32_t)__builtin_clz(x) : 32U)
 #elif defined(_MSC_VER)
+#include <intrin.h>
 /* ビルトイン関数を使用 */
 __inline uint32_t SRLAUTILITY_NLZ(uint32_t x)
 {
-    unsigned long result;
-    return (_BitScanReverse(&result, x) != 0) ? (31U - result) : 32U;
+    return __lzcnt(x);
 }
 #else
 /* ソフトウェア実装を使用 */
