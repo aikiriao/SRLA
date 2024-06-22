@@ -439,7 +439,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
     /* 各分割での符号長を計算し、最適な分割を探索 */
     min_bits = UINT32_MAX;
     best_porder = max_porder + 1;
-    
+
     switch (tmp_code_type) {
     case SRLACODER_CODE_TYPE_RICE:
     {
@@ -504,7 +504,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
     default:
         SRLA_ASSERT(0);
     }
-    
+
     SRLA_ASSERT(best_porder != (max_porder + 1));
 
     /* 結果を記録 */
