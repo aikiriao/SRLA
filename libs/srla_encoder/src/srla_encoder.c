@@ -32,7 +32,6 @@ struct SRLAEncoder {
     struct LPCCalculator *lpcc; /* LPC計算ハンドル */
     struct SRLAPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
     struct SRLAOptimalBlockPartitionCalculator *obpc; /* 最適ブロック分割計算ハンドル */
-    int32_t **pre_emphasis_prev; /* プリエンファシスフィルタの直前のサンプル */
     double **params_double; /* 各チャンネルのLPC係数(double) */
     int32_t **params_int; /* 各チャンネルのLPC係数(int) */
     uint32_t *rshifts; /* 各チャンネルのLPC係数右シフト量 */
@@ -600,9 +599,6 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     /* プリエンファシスフィルタの作成 */
     SRLA_ALLOCATE_2DIMARRAY(encoder->pre_emphasis,
             work_ptr, struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
-    /* プリエンファシスフィルタのバッファ領域 */
-    SRLA_ALLOCATE_2DIMARRAY(encoder->pre_emphasis_prev,
-            work_ptr, int32_t, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
 
     /* バッファ領域の確保 全てのポインタをアラインメント */
     /* LPC係数(int) */
