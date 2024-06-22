@@ -388,12 +388,13 @@ static uint32_t RecursiveRice_ComputeCodeLength(const uint32_t *data, uint32_t n
     return length;
 }
 
-/* 符号付き整数配列の符号化 */
-static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, struct BitStream *stream, const int32_t *data, uint32_t num_samples)
+static void SRLACoder_SearchBestCodeAndPartition(
+    struct SRLACoder *coder, const int32_t *data, uint32_t num_samples,
+    SRLACoderCodeType *code_type, uint32_t *best_partition_order, uint32_t *best_code_length)
 {
     uint32_t max_porder, max_num_partitions;
-    uint32_t porder, part, best_porder, smpl;
-    SRLACoderCodeType code_type = SRLACODER_CODE_TYPE_INVALID;
+    uint32_t porder, part, best_porder, min_bits, smpl;
+    SRLACoderCodeType tmp_code_type = SRLACODER_CODE_TYPE_INVALID;
 
     /* 最大分割数の決定 */
     max_porder = 1;
@@ -430,87 +431,100 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
 
     /* 全体平均を元に符号を切り替え */
     if (coder->part_mean[0][0] < 2) {
-        code_type = SRLACODER_CODE_TYPE_RICE;
+        tmp_code_type = SRLACODER_CODE_TYPE_RICE;
     } else {
-        code_type = SRLACODER_CODE_TYPE_RECURSIVE_RICE;
+        tmp_code_type = SRLACODER_CODE_TYPE_RECURSIVE_RICE;
     }
 
     /* 各分割での符号長を計算し、最適な分割を探索 */
+    min_bits = UINT32_MAX;
+    best_porder = max_porder + 1;
+    
+    switch (tmp_code_type) {
+    case SRLACODER_CODE_TYPE_RICE:
     {
-        uint32_t min_bits = UINT32_MAX;
-        best_porder = max_porder + 1;
-
-        switch (code_type) {
-        case SRLACODER_CODE_TYPE_RICE:
-        {
-            for (porder = 0; porder <= max_porder; porder++) {
-                const uint32_t nsmpl = (num_samples >> porder);
-                uint32_t k, prevk;
-                uint32_t bits = 0;
-                for (part = 0; part < (1U << porder); part++) {
-                    SRLACoder_CalculateOptimalRiceParameter(coder->part_mean[porder][part], &k, NULL);
-                    for (smpl = 0; smpl < nsmpl; smpl++) {
-                        bits += Rice_GetCodeLength(k, coder->uval_buffer[part * nsmpl + smpl]);
-                    }
-                    if (part == 0) {
-                        bits += SRLACODER_RICE_PARAMETER_BITS;
-                    } else {
-                        const int32_t diff = (int32_t)k - (int32_t)prevk;
-                        const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
-                        bits += SRLACODER_GAMMA_BITS(udiff);
-                    }
-                    prevk = k;
-                    /* 途中で最小値を超えていたら終わり */
-                    if (bits >= min_bits) {
-                        break;
-                    }
+        for (porder = 0; porder <= max_porder; porder++) {
+            const uint32_t nsmpl = (num_samples >> porder);
+            uint32_t k, prevk;
+            uint32_t bits = 0;
+            for (part = 0; part < (1U << porder); part++) {
+                SRLACoder_CalculateOptimalRiceParameter(coder->part_mean[porder][part], &k, NULL);
+                for (smpl = 0; smpl < nsmpl; smpl++) {
+                    bits += Rice_GetCodeLength(k, coder->uval_buffer[part * nsmpl + smpl]);
                 }
-                if (bits < min_bits) {
-                    min_bits = bits;
-                    best_porder = porder;
+                if (part == 0) {
+                    bits += SRLACODER_RICE_PARAMETER_BITS;
+                } else {
+                    const int32_t diff = (int32_t)k - (int32_t)prevk;
+                    const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
+                    bits += SRLACODER_GAMMA_BITS(udiff);
+                }
+                prevk = k;
+                /* 途中で最小値を超えていたら終わり */
+                if (bits >= min_bits) {
+                    break;
                 }
             }
-        }
-        break;
-        case SRLACODER_CODE_TYPE_RECURSIVE_RICE:
-        {
-            for (porder = 0; porder <= max_porder; porder++) {
-                const uint32_t nsmpl = (num_samples >> porder);
-                uint32_t k1, k2, prevk2;
-                uint32_t bits = 0;
-                for (part = 0; part < (1U << porder); part++) {
-                    SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, NULL);
-                    bits += RecursiveRice_ComputeCodeLength(&coder->uval_buffer[part * nsmpl], nsmpl, k1, k2);
-                    if (part == 0) {
-                        bits += SRLACODER_RICE_PARAMETER_BITS;
-                    } else {
-                        const int32_t diff = (int32_t)k2 - (int32_t)prevk2;
-                        const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
-                        bits += SRLACODER_GAMMA_BITS(udiff);
-                    }
-                    prevk2 = k2;
-                    /* 途中で最小値を超えていたら終わり */
-                    if (bits >= min_bits) {
-                        break;
-                    }
-                }
-                if (bits < min_bits) {
-                    min_bits = bits;
-                    best_porder = porder;
-                }
+            if (bits < min_bits) {
+                min_bits = bits;
+                best_porder = porder;
             }
         }
-        break;
-        default:
-            SRLA_ASSERT(0);
-        }
-
-        SRLA_ASSERT(best_porder != (max_porder + 1));
     }
+    break;
+    case SRLACODER_CODE_TYPE_RECURSIVE_RICE:
+    {
+        for (porder = 0; porder <= max_porder; porder++) {
+            const uint32_t nsmpl = (num_samples >> porder);
+            uint32_t k1, k2, prevk2;
+            uint32_t bits = 0;
+            for (part = 0; part < (1U << porder); part++) {
+                SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, NULL);
+                bits += RecursiveRice_ComputeCodeLength(&coder->uval_buffer[part * nsmpl], nsmpl, k1, k2);
+                if (part == 0) {
+                    bits += SRLACODER_RICE_PARAMETER_BITS;
+                } else {
+                    const int32_t diff = (int32_t)k2 - (int32_t)prevk2;
+                    const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
+                    bits += SRLACODER_GAMMA_BITS(udiff);
+                }
+                prevk2 = k2;
+                /* 途中で最小値を超えていたら終わり */
+                if (bits >= min_bits) {
+                    break;
+                }
+            }
+            if (bits < min_bits) {
+                min_bits = bits;
+                best_porder = porder;
+            }
+        }
+    }
+    break;
+    default:
+        SRLA_ASSERT(0);
+    }
+    
+    SRLA_ASSERT(best_porder != (max_porder + 1));
+
+    /* 結果を記録 */
+    (*code_type) = tmp_code_type;
+    (*best_partition_order) = best_porder;
+    (*best_code_length) = min_bits;
+}
+
+/* 符号付き整数配列の符号化 */
+static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, struct BitStream *stream, const int32_t *data, uint32_t num_samples)
+{
+    uint32_t part, best_porder, smpl, min_bits;
+    SRLACoderCodeType code_type;
+
+    /* 最適な符号と分割のサーチ */
+    SRLACoder_SearchBestCodeAndPartition(
+        coder, data, num_samples, &code_type, &best_porder, &min_bits);
 
     /* 最適な分割を用いて符号化 */
     {
-        uint32_t smpl;
         const uint32_t nsmpl = num_samples >> best_porder;
 
         SRLA_ASSERT(code_type != SRLACODER_CODE_TYPE_INVALID);
@@ -653,6 +667,22 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
     default:
         SRLA_ASSERT(0);
     }
+}
+
+/* 符号長計算 */
+uint32_t SRLACoder_ComputeCodeLength(struct SRLACoder *coder, const int32_t *data, uint32_t num_samples)
+{
+    uint32_t dummy_best_porder, min_bits;
+    SRLACoderCodeType dummy_code_type;
+
+    SRLA_ASSERT((data != NULL) && (coder != NULL));
+    SRLA_ASSERT(num_samples != 0);
+
+    /* 最適な符号と分割のサーチ */
+    SRLACoder_SearchBestCodeAndPartition(
+        coder, data, num_samples, &dummy_code_type, &dummy_best_porder, &min_bits);
+
+    return min_bits;
 }
 
 /* 符号付き整数配列の符号化 */

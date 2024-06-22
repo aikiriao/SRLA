@@ -20,6 +20,9 @@ struct SRLACoder* SRLACoder_Create(uint32_t max_num_samples, void *work, int32_t
 /* 符号化ハンドルの破棄 */
 void SRLACoder_Destroy(struct SRLACoder *coder);
 
+/* 符号長計算 */
+uint32_t SRLACoder_ComputeCodeLength(struct SRLACoder *coder, const int32_t *data, uint32_t num_samples);
+
 /* 符号付き整数配列の符号化 */
 void SRLACoder_Encode(struct SRLACoder *coder, struct BitStream *stream, const int32_t *data, uint32_t num_samples);
 
