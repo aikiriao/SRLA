@@ -145,8 +145,8 @@ void SRLAUtility_LStoLRConversion(int32_t **buffer, uint32_t num_samples)
     }
 }
 
-/* LR -> RS (in-place) */
-void SRLAUtility_LRtoRSConversion(int32_t **buffer, uint32_t num_samples)
+/* LR -> SR (in-place) */
+void SRLAUtility_LRtoSRConversion(int32_t **buffer, uint32_t num_samples)
 {
     uint32_t smpl;
 
@@ -159,8 +159,8 @@ void SRLAUtility_LRtoRSConversion(int32_t **buffer, uint32_t num_samples)
     }
 }
 
-/* RS -> LR (in-place) */
-void SRLAUtility_RStoLRConversion(int32_t **buffer, uint32_t num_samples)
+/* SR -> LR (in-place) */
+void SRLAUtility_SRtoLRConversion(int32_t **buffer, uint32_t num_samples)
 {
     uint32_t smpl;
 

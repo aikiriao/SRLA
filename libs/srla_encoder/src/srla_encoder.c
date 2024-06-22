@@ -34,10 +34,16 @@ struct SRLAEncoder {
     struct SRLAOptimalBlockPartitionCalculator *obpc; /* 最適ブロック分割計算ハンドル */
     double **params_double; /* 各チャンネルのLPC係数(double) */
     int32_t **params_int; /* 各チャンネルのLPC係数(int) */
-    uint32_t *rshifts; /* 各チャンネルのLPC係数右シフト量 */
+    uint32_t *coef_rshifts; /* 各チャンネルのLPC係数右シフト量 */
     uint32_t *coef_order; /* 各チャンネルのLPC係数次数 */
     int32_t **buffer_int; /* 信号バッファ(int) */
     int32_t **residual; /* 残差信号 */
+    int32_t **ms_buffer_int; /* MS信号バッファ */
+    int32_t **ms_residual; /* MS残差信号 */
+    struct SRLAPreemphasisFilter **ms_pre_emphasis; /* プリエンファシスフィルタ(MS) */
+    uint32_t *ms_coef_rshifts; /* LPC係数右シフト量(MS) */
+    uint32_t *ms_coef_order; /* LPC係数次数(MS) */
+    int32_t **ms_params_int; /* LPC係数(MS) */
     double *buffer_double; /* 信号バッファ(double) */
     double *error_vars; /* 各予測係数の残差分散列 */
     double **multiple_lpc_coefs; /* 各次数の予測係数 */
@@ -485,21 +491,30 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
 
     /* プリエンファシスフィルタのサイズ */
     work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
-    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
+    /* プリエンファシスフィルタのサイズ(MS) */
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(struct SRLAPreemphasisFilter, 2, SRLA_NUM_PREEMPHASIS_FILTERS);
     /* パラメータバッファ領域 */
     /* LPC係数(int) */
     work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_parameters);
+    /* LPC係数(MS, int) */
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, 2, config->max_num_parameters);
     /* LPC係数(double) */
     work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(double, config->max_num_channels, config->max_num_parameters);
     /* 各チャンネルのLPC係数右シフト量 */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
+    /* MSチャンネルのLPC係数右シフト量 */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * 2);
     /* 各チャンネルのLPC係数次数 */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
+    /* MSチャンネルのLPC係数次数 */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * 2);
     /* 信号処理バッファのサイズ */
     work_size += (int32_t)(2 * SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block));
     work_size += (int32_t)(config->max_num_samples_per_block * sizeof(double) + SRLA_MEMORY_ALIGNMENT);
     /* 残差信号のサイズ */
     work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block);
+    /* MS信号・残差バッファのサイズ */
+    work_size += (int32_t)(2 * SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, 2, config->max_num_samples_per_block));
     /* 残差分散領域のサイズ */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(double) * (config->max_num_parameters + 1));
     /* 係数領域のサイズ */
@@ -598,29 +613,49 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
 
     /* プリエンファシスフィルタの作成 */
     SRLA_ALLOCATE_2DIMARRAY(encoder->pre_emphasis,
-            work_ptr, struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
+        work_ptr, struct SRLAPreemphasisFilter, config->max_num_channels, SRLA_NUM_PREEMPHASIS_FILTERS);
+    /* MSチャンネル分のプリエンファシスフィルタの作成 */
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ms_pre_emphasis,
+        work_ptr, struct SRLAPreemphasisFilter, 2, SRLA_NUM_PREEMPHASIS_FILTERS);
 
     /* バッファ領域の確保 全てのポインタをアラインメント */
     /* LPC係数(int) */
     SRLA_ALLOCATE_2DIMARRAY(encoder->params_int,
-            work_ptr, int32_t, config->max_num_channels, config->max_num_parameters);
+        work_ptr, int32_t, config->max_num_channels, config->max_num_parameters);
+    /* LPC係数(MS, int) */
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ms_params_int,
+        work_ptr, int32_t, 2, config->max_num_parameters);
     /* LPC係数(double) */
     SRLA_ALLOCATE_2DIMARRAY(encoder->params_double,
-            work_ptr, double, config->max_num_channels, config->max_num_parameters);
-    /* 各層のLPC係数右シフト量 */
+        work_ptr, double, config->max_num_channels, config->max_num_parameters);
+    /* LPC係数右シフト量 */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
-    encoder->rshifts = (uint32_t *)work_ptr;
+    encoder->coef_rshifts = (uint32_t *)work_ptr;
     work_ptr += config->max_num_channels * sizeof(uint32_t);
-    /* 各層のLPC係数次数 */
+    /* LPC係数右シフト量(MS) */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    encoder->ms_coef_rshifts = (uint32_t *)work_ptr;
+    work_ptr += 2 * sizeof(uint32_t);
+    /* LPC係数次数 */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
     encoder->coef_order = (uint32_t *)work_ptr;
     work_ptr += config->max_num_channels * sizeof(uint32_t);
+    /* LPC係数次数(MS) */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    encoder->ms_coef_order = (uint32_t *)work_ptr;
+    work_ptr += 2 * sizeof(uint32_t);
 
     /* 信号処理用バッファ領域 */
     SRLA_ALLOCATE_2DIMARRAY(encoder->buffer_int,
             work_ptr, int32_t, config->max_num_channels, config->max_num_samples_per_block);
     SRLA_ALLOCATE_2DIMARRAY(encoder->residual,
             work_ptr, int32_t, config->max_num_channels, config->max_num_samples_per_block);
+
+    /* MS信号処理用バッファ領域 */
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ms_buffer_int,
+        work_ptr, int32_t, 2, config->max_num_samples_per_block);
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ms_residual,
+        work_ptr, int32_t, 2, config->max_num_samples_per_block);
 
     /* 残差分散領域 */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
@@ -940,7 +975,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
 static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     struct SRLAEncoder *encoder,
     int32_t *buffer_int, double *buffer_double, int32_t *residual_int, uint32_t num_samples,
-    struct SRLAPreemphasisFilter *pre_emphasis_filters, int32_t *coef_order, int32_t *coef_rshift, int32_t *int_coef,
+    struct SRLAPreemphasisFilter *pre_emphasis_filters, uint32_t *coef_order, uint32_t *coef_rshift, int32_t *int_coef,
     uint32_t *code_length)
 {
     uint32_t smpl, p;
@@ -949,8 +984,8 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     const struct SRLAHeader *header;
     const struct SRLAParameterPreset *parameter_preset;
     struct SRLAPreemphasisFilter tmp_pre_emphasis_filters[SRLA_NUM_PREEMPHASIS_FILTERS];
-    int32_t tmp_coef_order;
-    int32_t tmp_coef_rshift;
+    uint32_t tmp_coef_order;
+    uint32_t tmp_coef_rshift;
     double double_coef[SRLA_MAX_COEFFICIENT_ORDER];
     int32_t tmp_int_coef[SRLA_MAX_COEFFICIENT_ORDER];
     uint32_t tmp_code_length;
@@ -965,6 +1000,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     header = &(encoder->header);
     parameter_preset = encoder->parameter_preset;
 
+    /* プリエンファシスフィルタ群 */
     for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
         struct SRLAPreemphasisFilter filter;
         const int32_t tmp_prev = buffer_int[0];
@@ -1026,7 +1062,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
 
     /* LPC予測 */
     SRLALPC_Predict(buffer_int,
-        num_samples, &tmp_int_coef, tmp_coef_order, residual_int, tmp_coef_rshift);
+        num_samples, tmp_int_coef, tmp_coef_order, residual_int, tmp_coef_rshift);
 
     /* 符号長計算 */
     tmp_code_length = 0;
@@ -1069,6 +1105,8 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     struct BitStream writer;
     const struct SRLAHeader *header;
     SRLAChannelProcessMethod ch_process_method = SRLA_CH_PROCESS_METHOD_INVALID;
+    uint32_t code_length[SRLA_MAX_NUM_CHANNELS] = { 0, };
+    uint32_t ms_code_length[2] = { 0, };
 
     /* 内部関数なので不正な引数はアサートで落とす */
     SRLA_ASSERT(encoder != NULL);
@@ -1081,73 +1119,6 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     /* ヘッダ取得 */
     header = &(encoder->header);
 
-    /* マルチチャンネル処理法の決定 */
-    if (header->num_channels == 1) {
-        ch_process_method = SRLA_CH_PROCESS_METHOD_NONE;
-    } else {
-        switch (encoder->parameter_preset->ch_process_method_tactics) {
-        case SRLA_CH_PROCESS_METHOD_TACTICS_NONE:
-            ch_process_method = SRLA_CH_PROCESS_METHOD_NONE;
-            break;
-        case SRLA_CH_PROCESS_METHOD_TACTICS_MS_FIXED:
-            ch_process_method = SRLA_CH_PROCESS_METHOD_MS;
-            break;
-        case SRLA_CH_PROCESS_METHOD_TACTICS_ADAPTIVE:
-            if (header->num_channels >= 2) {
-                uint32_t smpl;
-                double est_len[4];
-                /* 入力をバッファにコピー */
-                for (ch = 0; ch < 2; ch++) {
-                    memcpy(encoder->buffer_int[ch], input[ch], sizeof(int32_t) * num_samples);
-                }
-                /* MS信号の生成 */
-                SRLAUtility_LRtoMSConversion(encoder->buffer_int, num_samples);
-
-                /* 各チャンネルの推定符号長を計算 */
-                for (ch = 0; ch < 2; ch++) {
-                    /* L,R */
-                    const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
-                    for (smpl = 0; smpl < num_samples; smpl++) {
-                        encoder->buffer_double[smpl] = input[ch][smpl] * norm_const;
-                    }
-                    LPCCalculator_EstimateCodeLength(encoder->lpcc,
-                        encoder->buffer_double, num_samples, header->bits_per_sample, encoder->parameter_preset->max_num_parameters,
-                        &est_len[ch], LPC_WINDOWTYPE_WELCH);
-                    /* M,S */
-                    for (smpl = 0; smpl < num_samples; smpl++) {
-                        encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * norm_const;
-                    }
-                    LPCCalculator_EstimateCodeLength(encoder->lpcc,
-                        encoder->buffer_double, num_samples, header->bits_per_sample, encoder->parameter_preset->max_num_parameters,
-                        &est_len[2 + ch], LPC_WINDOWTYPE_WELCH);
-                }
-                /* 最小の符号長を選択 */
-                {
-                    uint32_t i;
-                    SRLAChannelProcessMethod argmin;
-                    double len[4], min;
-                    SRLA_STATIC_ASSERT((SRLA_CH_PROCESS_METHOD_NONE == 0) && (SRLA_CH_PROCESS_METHOD_MS == 1)
-                        && (SRLA_CH_PROCESS_METHOD_LS == 2) && (SRLA_CH_PROCESS_METHOD_RS == 3));
-                    len[SRLA_CH_PROCESS_METHOD_NONE] = est_len[0] + est_len[1];
-                    len[SRLA_CH_PROCESS_METHOD_MS] = est_len[2] + est_len[3];
-                    len[SRLA_CH_PROCESS_METHOD_LS] = est_len[0] + est_len[3];
-                    len[SRLA_CH_PROCESS_METHOD_RS] = est_len[1] + est_len[3];
-                    min = len[SRLA_CH_PROCESS_METHOD_NONE]; argmin = SRLA_CH_PROCESS_METHOD_NONE;
-                    for (i = 1; i < 4; i++) {
-                        if (min > len[i]) {
-                            min = len[i];
-                            argmin = (SRLAChannelProcessMethod)i;
-                        }
-                    }
-                    ch_process_method = argmin;
-                }
-            }
-            break;
-        default:
-            SRLA_ASSERT(0);
-        }
-    }
-
     /* 入力をバッファにコピー */
     for (ch = 0; ch < header->num_channels; ch++) {
         memcpy(encoder->buffer_int[ch], input[ch], sizeof(int32_t) * num_samples);
@@ -1158,35 +1129,78 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         }
     }
 
-    /* マルチチャンネル処理 */
-    switch (ch_process_method) {
-    case SRLA_CH_PROCESS_METHOD_NONE:
-        break;
-    case SRLA_CH_PROCESS_METHOD_MS:
-        SRLA_ASSERT(header->num_channels >= 2);
-        SRLAUtility_LRtoMSConversion(encoder->buffer_int, num_samples);
-        break;
-    case SRLA_CH_PROCESS_METHOD_LS:
-        SRLA_ASSERT(header->num_channels >= 2);
-        SRLAUtility_LRtoLSConversion(encoder->buffer_int, num_samples);
-        break;
-    case SRLA_CH_PROCESS_METHOD_RS:
-        SRLA_ASSERT(header->num_channels >= 2);
-        SRLAUtility_LRtoRSConversion(encoder->buffer_int, num_samples);
-        break;
-    default:
-        SRLA_ASSERT(0);
+    /* MS信号生成・符号長計算 */
+    if (header->num_channels >= 2) {
+        for (ch = 0; ch < 2; ch++) {
+            memcpy(encoder->ms_buffer_int[ch], encoder->buffer_int[ch], sizeof(int32_t) * num_samples);
+        }
+        SRLAUtility_LRtoMSConversion(encoder->ms_buffer_int, num_samples);
+        for (ch = 0; ch < 2; ch++) {
+            SRLAError err;
+            if ((err = SRLAEncoder_ComputeCoefficientsPerChannel(encoder,
+                encoder->ms_buffer_int[ch], encoder->buffer_double, encoder->ms_residual[ch], num_samples,
+                encoder->ms_pre_emphasis[ch], &encoder->ms_coef_order[ch], &encoder->ms_coef_rshifts[ch], encoder->ms_params_int[ch],
+                &ms_code_length[ch])) != SRLA_ERROR_OK) {
+                return SRLA_APIRESULT_NG;
+            }
+        }
     }
-
     /* チャンネルごとにパラメータ・符号長計算 */
     for (ch = 0; ch < header->num_channels; ch++) {
-        uint32_t tmp_length;
         SRLAError err;
         if ((err = SRLAEncoder_ComputeCoefficientsPerChannel(encoder,
             encoder->buffer_int[ch], encoder->buffer_double, encoder->residual[ch], num_samples,
-            encoder->pre_emphasis[ch], &encoder->coef_order[ch], &encoder->rshifts[ch], encoder->params_int[ch],
-            &tmp_length)) != SRLA_ERROR_OK) {
+            encoder->pre_emphasis[ch], &encoder->coef_order[ch], &encoder->coef_rshifts[ch], encoder->params_int[ch],
+            &code_length[ch])) != SRLA_ERROR_OK) {
             return SRLA_APIRESULT_NG;
+        }
+    }
+
+    /* マルチチャンネルで最小の符号長を選択 */
+    if (header->num_channels == 1) {
+        /* モノラルでは何もしない */
+        ch_process_method = SRLA_CH_PROCESS_METHOD_NONE;
+    } else if (header->num_channels >= 2) {
+        SRLAChannelProcessMethod argmin;
+        uint32_t len[4], min;
+
+        /* LR, MS, LS, SRの中で最も符号長が短いものを選択 */
+        SRLA_STATIC_ASSERT((SRLA_CH_PROCESS_METHOD_NONE == 0) && (SRLA_CH_PROCESS_METHOD_MS == 1)
+            && (SRLA_CH_PROCESS_METHOD_LS == 2) && (SRLA_CH_PROCESS_METHOD_SR == 3));
+        len[SRLA_CH_PROCESS_METHOD_NONE] = code_length[0] + code_length[1];
+        len[SRLA_CH_PROCESS_METHOD_MS] = ms_code_length[0] + ms_code_length[1];
+        len[SRLA_CH_PROCESS_METHOD_LS] = code_length[0] + ms_code_length[1];
+        len[SRLA_CH_PROCESS_METHOD_SR] = code_length[1] + ms_code_length[1];
+        min = len[SRLA_CH_PROCESS_METHOD_NONE]; argmin = SRLA_CH_PROCESS_METHOD_NONE;
+        for (ch = 1; ch < 4; ch++) {
+            if (min > len[ch]) {
+                min = len[ch];
+                argmin = (SRLAChannelProcessMethod)ch;
+            }
+        }
+        ch_process_method = argmin;
+
+        /* 判定結果に応じてLRの結果を差し替える */
+        if (ch_process_method == SRLA_CH_PROCESS_METHOD_MS) {
+            for (ch = 0; ch < 2; ch++) {
+                memcpy(encoder->pre_emphasis[ch], encoder->ms_pre_emphasis[ch],
+                    sizeof(struct SRLAPreemphasisFilter) * SRLA_NUM_PREEMPHASIS_FILTERS);
+                encoder->coef_order[ch] = encoder->ms_coef_order[ch];
+                encoder->coef_rshifts[ch] = encoder->ms_coef_rshifts[ch];
+                memcpy(encoder->params_int[ch], encoder->ms_params_int[ch],
+                    sizeof(int32_t) * encoder->ms_coef_order[ch]);
+                memcpy(encoder->residual[ch], encoder->ms_residual[ch], sizeof(int32_t) * num_samples);
+            }
+        } else if ((ch_process_method == SRLA_CH_PROCESS_METHOD_LS) || (ch_process_method == SRLA_CH_PROCESS_METHOD_SR)) {
+            const uint32_t src_ch = 1; /* S */
+            const uint32_t dst_ch = (ch_process_method == SRLA_CH_PROCESS_METHOD_LS) ? 1 : 0;
+            memcpy(encoder->pre_emphasis[dst_ch], encoder->ms_pre_emphasis[src_ch],
+                sizeof(struct SRLAPreemphasisFilter) * SRLA_NUM_PREEMPHASIS_FILTERS);
+            encoder->coef_order[dst_ch] = encoder->ms_coef_order[src_ch];
+            encoder->coef_rshifts[dst_ch] = encoder->ms_coef_rshifts[src_ch];
+            memcpy(encoder->params_int[dst_ch], encoder->ms_params_int[src_ch],
+                sizeof(int32_t) * encoder->ms_coef_order[src_ch]);
+            memcpy(encoder->residual[dst_ch], encoder->ms_residual[src_ch], sizeof(int32_t) * num_samples);
         }
     }
 
@@ -1222,8 +1236,8 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         SRLA_ASSERT(encoder->coef_order[ch] <= (1U << SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH));
         BitWriter_PutBits(&writer, encoder->coef_order[ch] - 1, SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
         /* LPC係数右シフト量 */
-        SRLA_ASSERT(encoder->rshifts[ch] < (1U << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
-        BitWriter_PutBits(&writer, encoder->rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
+        SRLA_ASSERT(encoder->coef_rshifts[ch] < (1U << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
+        BitWriter_PutBits(&writer, encoder->coef_rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
         /* LPC係数 */
         for (i = 0; i < encoder->coef_order[ch]; i++) {
             uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][i]);

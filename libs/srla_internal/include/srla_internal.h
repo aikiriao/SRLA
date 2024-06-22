@@ -58,7 +58,7 @@ typedef enum SRLAChannelProcessMethodTag {
     SRLA_CH_PROCESS_METHOD_NONE = 0, /* 何もしない */
     SRLA_CH_PROCESS_METHOD_MS = 1, /* ステレオMS処理 */
     SRLA_CH_PROCESS_METHOD_LS = 2, /* ステレオLS処理 */
-    SRLA_CH_PROCESS_METHOD_RS = 3, /* ステレオRS処理 */
+    SRLA_CH_PROCESS_METHOD_SR = 3, /* ステレオSR処理 */
     SRLA_CH_PROCESS_METHOD_INVALID /* 無効値 */
 } SRLAChannelProcessMethod;
 

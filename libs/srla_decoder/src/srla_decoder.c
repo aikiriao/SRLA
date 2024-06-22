@@ -503,9 +503,9 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         SRLA_ASSERT(header->num_channels >= 2);
         SRLAUtility_LStoLRConversion(buffer, num_decode_samples);
         break;
-    case SRLA_CH_PROCESS_METHOD_RS:
+    case SRLA_CH_PROCESS_METHOD_SR:
         SRLA_ASSERT(header->num_channels >= 2);
-        SRLAUtility_RStoLRConversion(buffer, num_decode_samples);
+        SRLAUtility_SRtoLRConversion(buffer, num_decode_samples);
         break;
     default:
         SRLA_ASSERT(0);
