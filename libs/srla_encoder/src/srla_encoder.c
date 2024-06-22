@@ -1152,6 +1152,7 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
 
         /* 判定結果に応じてLRの結果を差し替える */
         if (ch_process_method == SRLA_CH_PROCESS_METHOD_MS) {
+            int32_t *tmpp;
             for (ch = 0; ch < 2; ch++) {
                 memcpy(encoder->pre_emphasis[ch], encoder->ms_pre_emphasis[ch],
                     sizeof(struct SRLAPreemphasisFilter) * SRLA_NUM_PREEMPHASIS_FILTERS);
@@ -1159,9 +1160,12 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
                 encoder->coef_rshifts[ch] = encoder->ms_coef_rshifts[ch];
                 memcpy(encoder->params_int[ch], encoder->ms_params_int[ch],
                     sizeof(int32_t) * encoder->ms_coef_order[ch]);
-                memcpy(encoder->residual[ch], encoder->ms_residual[ch], sizeof(int32_t) * num_samples);
+                tmpp = encoder->residual[ch];
+                encoder->residual[ch] = encoder->ms_residual[ch];
+                encoder->ms_residual[ch] = tmpp;
             }
         } else if ((ch_process_method == SRLA_CH_PROCESS_METHOD_LS) || (ch_process_method == SRLA_CH_PROCESS_METHOD_SR)) {
+            int32_t *tmpp;
             const uint32_t src_ch = 1; /* S */
             const uint32_t dst_ch = (ch_process_method == SRLA_CH_PROCESS_METHOD_LS) ? 1 : 0;
             memcpy(encoder->pre_emphasis[dst_ch], encoder->ms_pre_emphasis[src_ch],
@@ -1170,7 +1174,9 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
             encoder->coef_rshifts[dst_ch] = encoder->ms_coef_rshifts[src_ch];
             memcpy(encoder->params_int[dst_ch], encoder->ms_params_int[src_ch],
                 sizeof(int32_t) * encoder->ms_coef_order[src_ch]);
-            memcpy(encoder->residual[dst_ch], encoder->ms_residual[src_ch], sizeof(int32_t) * num_samples);
+            tmpp = encoder->residual[dst_ch];
+            encoder->residual[dst_ch] = encoder->ms_residual[src_ch];
+            encoder->ms_residual[src_ch] = tmpp;
         }
     }
 
