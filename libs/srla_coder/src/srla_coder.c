@@ -363,7 +363,7 @@ static uint32_t RecursiveRice_ComputeCodeLength(const uint32_t *data, uint32_t n
     uint32_t smpl, length;
     const uint32_t k1pow = 1U << k1;
 
-    assert(data != NULL);
+    SRLA_ASSERT(data != NULL);
 
 #if 0
     length = 0;
@@ -378,7 +378,7 @@ static uint32_t RecursiveRice_ComputeCodeLength(const uint32_t *data, uint32_t n
         }
     }
 #else
-    assert((k2 + 1) == k1);
+    SRLA_ASSERT((k2 + 1) == k1);
     length = (k1 + 1) * num_samples;
     for (smpl = 0; smpl < num_samples; smpl++) {
         length += (SRLAUTILITY_MAX(0, (int32_t)data[smpl] - (int32_t)k1pow) >> k2);
