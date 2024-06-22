@@ -40,6 +40,8 @@ struct SRLAEncoder {
     int32_t **buffer_int; /* 信号バッファ(int) */
     int32_t **residual; /* 残差信号 */
     double *buffer_double; /* 信号バッファ(double) */
+    double *error_vars; /* 各予測係数の残差分散列 */
+    double **multiple_lpc_coefs; /* 各次数の予測係数 */
     uint32_t *partitions_buffer; /* 最適な分割設定の記録領域 */
     struct StaticHuffmanCodes param_codes; /* パラメータ符号化用Huffman符号 */
     const struct SRLAParameterPreset *parameter_preset; /* パラメータプリセット */
@@ -499,6 +501,10 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     work_size += (int32_t)(config->max_num_samples_per_block * sizeof(double) + SRLA_MEMORY_ALIGNMENT);
     /* 残差信号のサイズ */
     work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block);
+    /* 残差分散領域のサイズ */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(double) * (config->max_num_parameters + 1));
+    /* 係数領域のサイズ */
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(double, config->max_num_parameters, config->max_num_parameters);
     /* 分割設定記録領域のサイズ */
     work_size += (int32_t)(SRLAENCODER_CALCULATE_NUM_NODES(config->max_num_samples_per_block, config->min_num_samples_per_block) * sizeof(uint32_t) + SRLA_MEMORY_ALIGNMENT);
 
@@ -619,6 +625,15 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
             work_ptr, int32_t, config->max_num_channels, config->max_num_samples_per_block);
     SRLA_ALLOCATE_2DIMARRAY(encoder->residual,
             work_ptr, int32_t, config->max_num_channels, config->max_num_samples_per_block);
+
+    /* 残差分散領域 */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    encoder->error_vars = (double *)work_ptr;
+    work_ptr += (config->max_num_parameters + 1) * sizeof(double);
+
+    /* 前次数の係数 */
+    SRLA_ALLOCATE_2DIMARRAY(encoder->multiple_lpc_coefs,
+        work_ptr, double, config->max_num_parameters, config->max_num_parameters);
 
     /* doubleバッファ */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
@@ -843,21 +858,15 @@ static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint
     return (1.0 + k1) * (1.0 - k1factor) + (1.0 + k2 + (1.0 / (1.0 - k2factor))) * k1factor;
 }
 
-static double SRLAEncoder_ComputeInverseSquaredSumWelchWindow(const uint32_t window_size)
-{
-    const double n = window_size - 1;
-    return (15 * (n - 1) * (n - 1) * (n - 1)) / (8 * n * (n - 2) * (n * n - 2 * n + 2));
-}
-
 /* 最適なLPC次数の選択 */
 static SRLAError SRLAEncoder_SelectBestLPCOrder(
-    struct SRLAEncoder *encoder,
-    const double *input, uint32_t num_samples, SRLAChannelLPCOrderDecisionTactics tactics,
+    const struct SRLAHeader *header, SRLAChannelLPCOrderDecisionTactics tactics,
+    const double *input, uint32_t num_samples, const double **coefs, const double *error_vars,
     uint32_t max_coef_order, uint32_t *best_coef_order)
 {
-    SRLA_ASSERT(encoder != NULL);
     SRLA_ASSERT(input != NULL);
-    SRLA_ASSERT(input == encoder->buffer_double); /* 現状エンコーダハンドルの領域の使用を想定 */
+    SRLA_ASSERT(coefs != NULL);
+    SRLA_ASSERT(error_vars != NULL);
     SRLA_ASSERT(best_coef_order != NULL);
 
     switch (tactics) {
@@ -868,22 +877,12 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
     case SRLA_LPC_ORDER_DECISION_TACTICS_BRUTEFORCE_SEARCH:
         /* 網羅探索 */
     {
-        LPCApiResult ret;
         double minlen, len, mabse;
         uint32_t i, order, smpl, tmp_best_order = 0;
-        double coefs[SRLA_MAX_COEFFICIENT_ORDER][SRLA_MAX_COEFFICIENT_ORDER];
-        double *pcoefs[SRLA_MAX_COEFFICIENT_ORDER];
-        for (i = 0; i < SRLA_MAX_COEFFICIENT_ORDER; i++) {
-            pcoefs[i] = &coefs[i][0];
-        }
-        /* 次数選択のため係数計算 */
-        ret = LPCCalculator_CalculateMultipleLPCCoefficients(encoder->lpcc,
-            input, num_samples, pcoefs, max_coef_order, LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER);
-        SRLA_ASSERT(ret == LPC_APIRESULT_OK);
 
         minlen = FLT_MAX;
         for (order = 1; order <= max_coef_order; order++) {
-            const double *coef = pcoefs[order - 1];
+            const double *coef = coefs[order - 1];
             mabse = 0.0;
             for (smpl = order; smpl < num_samples; smpl++) {
                 double residual = input[smpl];
@@ -893,7 +892,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
                 mabse += SRLAUTILITY_ABS(residual);
             }
             /* 残差符号のサイズ */
-            len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse / num_samples, encoder->header.bits_per_sample) * num_samples;
+            len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse / num_samples, header->bits_per_sample) * num_samples;
             /* 係数のサイズ */
             len += SRLA_LPC_COEFFICIENT_BITWIDTH * order;
             if (minlen > len) {
@@ -907,40 +906,25 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
         return SRLA_ERROR_OK;
     }
     case SRLA_LPC_ORDER_DECISION_TACTICS_BRUTEFORCE_ESTIMATION:
-    {
-        LPCApiResult ret;
-        uint32_t i, tmp_best_order = 0;
-        double error_vars[SRLA_MAX_COEFFICIENT_ORDER + 1];
-        const double var_norm_factor = SRLAEncoder_ComputeInverseSquaredSumWelchWindow(num_samples);
-
-        /* 残差分散の計算 */
-        ret = LPCCalculator_CalculateErrorVariances(encoder->lpcc,
-            input, num_samples, error_vars, max_coef_order, LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER);
-        SRLA_ASSERT(ret == LPC_APIRESULT_OK);
-
-        for (i = 0; i <= max_coef_order; i++) {
-            error_vars[i] *= var_norm_factor;
-        }
-
         /* 最小推定符号長を与える係数次数の探索 */
-        {
-            uint32_t order;
-            double len, mabse, minlen = FLT_MAX;
-            /* 次数あたり係数量子化誤差分散 */
-            const double qerr_var_unit = pow(2.0, -2.0 * SRLA_LPC_COEFFICIENT_BITWIDTH) * error_vars[0] / 12.0;
-            for (order = 1; order <= max_coef_order; order++) {
-                /* 係数量子化誤差分散を加えた誤差分散 */
-                const double err_var = error_vars[order] + order * qerr_var_unit;
-                /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
-                mabse = 2.0 * sqrt(err_var / 2.0); /* 符号化で非負整数化するため2倍 */
-                /* 残差符号のサイズ */
-                len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse, encoder->header.bits_per_sample) * num_samples;
-                /* 係数のサイズ */
-                len += SRLA_LPC_COEFFICIENT_BITWIDTH * order;
-                if (minlen > len) {
-                    minlen = len;
-                    tmp_best_order = order;
-                }
+    {
+        uint32_t order, tmp_best_order = 0;
+        double len, mabse, minlen = FLT_MAX;
+
+        /* 次数あたり係数量子化誤差分散 */
+        const double qerr_var_unit = pow(2.0, -2.0 * SRLA_LPC_COEFFICIENT_BITWIDTH) * error_vars[0] / 12.0;
+        for (order = 1; order <= max_coef_order; order++) {
+            /* 係数量子化誤差分散を加えた誤差分散 */
+            const double err_var = error_vars[order] + order * qerr_var_unit;
+            /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
+            mabse = 2.0 * sqrt(err_var / 2.0); /* 符号化で非負整数化するため2倍 */
+            /* 残差符号のサイズ */
+            len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse, header->bits_per_sample) * num_samples;
+            /* 係数のサイズ */
+            len += SRLA_LPC_COEFFICIENT_BITWIDTH * order;
+            if (minlen > len) {
+                minlen = len;
+                tmp_best_order = order;
             }
         }
 
@@ -1090,16 +1074,28 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     for (ch = 0; ch < header->num_channels; ch++) {
         uint32_t smpl, p;
         LPCApiResult ret;
+        SRLAError err;
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         for (smpl = 0; smpl < num_samples; smpl++) {
             encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * norm_const;
         }
+        /* 最大次数まで係数と誤差分散を計算 */
+        ret = LPCCalculator_CalculateMultipleLPCCoefficients(encoder->lpcc,
+            encoder->buffer_double, num_samples,
+            encoder->multiple_lpc_coefs, encoder->error_vars, encoder->parameter_preset->max_num_parameters,
+            LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER);
+        SRLA_ASSERT(ret == LPC_APIRESULT_OK);
         /* 次数選択 */
-        SRLAEncoder_SelectBestLPCOrder(encoder,
-            encoder->buffer_double, num_samples, encoder->parameter_preset->lpc_order_tactics,
+        err = SRLAEncoder_SelectBestLPCOrder(&encoder->header,
+            encoder->parameter_preset->lpc_order_tactics,
+            encoder->buffer_double, num_samples, (const double **)encoder->multiple_lpc_coefs, encoder->error_vars,
             encoder->parameter_preset->max_num_parameters, &encoder->coef_order[ch]);
-        /* LPC係数計算 */
+        SRLA_ASSERT(err == SRLA_ERROR_OK);
+        /* 最良の次数をパラメータに設定 */
+        memcpy(encoder->params_double[ch],
+            encoder->multiple_lpc_coefs[encoder->coef_order[ch] - 1], sizeof(double) * encoder->coef_order[ch]);
+        /* SVRによるLPC係数計算 */
         ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
             encoder->buffer_double, num_samples,
             encoder->params_double[ch], encoder->coef_order[ch], encoder->parameter_preset->svr_max_num_iterations,
@@ -1111,6 +1107,7 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
             encoder->params_double[ch][p] = encoder->params_double[ch][encoder->coef_order[ch] - p - 1];
             encoder->params_double[ch][encoder->coef_order[ch] - p - 1] = tmp;
         }
+        /* LPC係数量子化 */
         ret = LPC_QuantizeCoefficients(encoder->params_double[ch], encoder->coef_order[ch],
             SRLA_LPC_COEFFICIENT_BITWIDTH, (1 << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH),
             encoder->params_int[ch], &encoder->rshifts[ch]);

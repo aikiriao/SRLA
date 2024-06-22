@@ -49,16 +49,10 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     LPCWindowType window_type, double regular_term);
 
 /* Levinson-Durbin再帰計算により与えられた次数まで全てのLPC係数を求める（倍精度） */
+/* error_varsは0次の誤差分散（分散）からmax_coef_order次の分散まで求めるためerror_varsのサイズはmax_coef_order+1要する */
 LPCApiResult LPCCalculator_CalculateMultipleLPCCoefficients(
     struct LPCCalculator* lpcc,
-    const double* data, uint32_t num_samples, double **lpc_coefs, uint32_t max_coef_order,
-    LPCWindowType window_type, double regular_term);
-
-/* Levinson-Durbin再帰計算により与えられた次数までの残差分散を求める（倍精度） */
-/* 0次の誤差分散（分散）からmax_coef_order次の分散まで求めるためerror_varsのサイズはmax_coef_order+1要する */
-LPCApiResult LPCCalculator_CalculateErrorVariances(
-    struct LPCCalculator* lpcc,
-    const double* data, uint32_t num_samples, double *error_vars, uint32_t max_coef_order,
+    const double* data, uint32_t num_samples, double **lpc_coefs, double *error_vars, uint32_t max_coef_order,
     LPCWindowType window_type, double regular_term);
 
 /* 補助関数法よりLPC係数を求める（倍精度） */

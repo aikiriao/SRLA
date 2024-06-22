@@ -259,6 +259,24 @@ static LPCError LPC_ApplyWindow(
     return LPC_ERROR_OK;
 }
 
+/* 窓の二乗和の逆数計算 */
+static double LPC_ComputeWindowInverseSquaredSum(LPCWindowType window_type, const uint32_t num_samples)
+{
+    switch (window_type) {
+    case LPC_WINDOWTYPE_RECTANGULAR:
+        return 1.0;
+    case LPC_WINDOWTYPE_WELCH:
+    {
+        const double n = num_samples - 1;
+        return (15 * (n - 1) * (n - 1) * (n - 1)) / (8 * n * (n - 2) * (n * n - 2 * n + 2));
+    }
+    default:
+        assert(0);
+    }
+
+    return 1.0;
+}
+
 /*（標本）自己相関の計算 */
 static LPCError LPC_CalculateAutoCorrelation(
     const double *data, uint32_t num_samples, double *auto_corr, uint32_t order)
@@ -461,6 +479,15 @@ static LPCError LPC_CalculateCoef(
         return LPC_ERROR_NG;
     }
 
+    /* 誤差分散で窓の影響を考慮 */
+    {
+        uint32_t i;
+        const double inverse_sqr = LPC_ComputeWindowInverseSquaredSum(window_type, num_samples);
+        for (i = 0; i < coef_order + 1; i++) {
+            lpcc->error_vars[i] *= inverse_sqr;
+        }
+    }
+
     return LPC_ERROR_OK;
 }
 
@@ -499,7 +526,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
 /* Levinson-Durbin再帰計算により与えられた次数まで全てのLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateMultipleLPCCoefficients(
     struct LPCCalculator* lpcc,
-    const double* data, uint32_t num_samples, double **lpc_coefs, uint32_t max_coef_order,
+    const double* data, uint32_t num_samples, double **lpc_coefs, double *error_vars, uint32_t max_coef_order,
     LPCWindowType window_type, double regular_term)
 {
     uint32_t k;
@@ -528,36 +555,6 @@ LPCApiResult LPCCalculator_CalculateMultipleLPCCoefficients(
     for (k = 0; k < max_coef_order; k++) {
         memmove(lpc_coefs[k], &lpcc->a_vecs[k][1], sizeof(double) * max_coef_order);
     }
-
-    return LPC_APIRESULT_OK;
-}
-
-/* Levinson-Durbin再帰計算により与えられた次数までの残差分散を求める（倍精度） */
-LPCApiResult LPCCalculator_CalculateErrorVariances(
-    struct LPCCalculator *lpcc,
-    const double *data, uint32_t num_samples, double *error_vars, uint32_t max_coef_order,
-    LPCWindowType window_type, double regular_term)
-{
-    /* 引数チェック */
-    if ((data == NULL) || (error_vars == NULL)) {
-        return LPC_APIRESULT_INVALID_ARGUMENT;
-    }
-
-    /* 次数チェック */
-    if (max_coef_order > lpcc->max_order) {
-        return LPC_APIRESULT_EXCEED_MAX_ORDER;
-    }
-
-    /* 入力サンプル数チェック */
-    if (num_samples > lpcc->max_num_buffer_samples) {
-        return LPC_APIRESULT_EXCEED_MAX_NUM_SAMPLES;
-    }
-
-    /* 係数計算 */
-    if (LPC_CalculateCoef(lpcc, data, num_samples, max_coef_order, window_type, regular_term) != LPC_ERROR_OK) {
-        return LPC_APIRESULT_FAILED_TO_CALCULATION;
-    }
-
     /* 計算成功時は結果をコピー */
     memmove(error_vars, lpcc->error_vars, sizeof(double) * (max_coef_order + 1));
 
@@ -1050,22 +1047,8 @@ static LPCError LPC_CalculateCoefSVR(
         return LPC_ERROR_INVALID_ARGUMENT;
     }
 
-    /* Levinson-Durbin法で係数を求める */
-    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, regular_term)) != LPC_ERROR_OK) {
-        return err;
-    }
-    /* 0次自己相関（信号の二乗和）が小さい場合
-    * => 係数は全て0として無音出力システムを予測 */
-    if (fabs(lpcc->auto_corr[0]) < FLT_EPSILON) {
-        for (i = 0; i < coef_order; i++) {
-            coef[i] = 0.0;
-        }
-        return LPC_ERROR_OK;
-    }
-
-    /* 学習しない場合はLevinson-Durbin法の結果をそのまま採用 */
+    /* 学習しない場合は即時終了 */
     if (max_num_iteration == 0) {
-        memcpy(coef, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
         return LPC_ERROR_OK;
     }
 
@@ -1086,8 +1069,8 @@ static LPCError LPC_CalculateCoefSVR(
         return LPC_ERROR_OK;
     }
 
-    /* 初期値をLevinson-Durbin法の係数に設定 */
-    memcpy(init_coef, &lpcc->a_vecs[coef_order - 1][1], sizeof(double) * coef_order);
+    /* 初期値を引数の係数に設定 */
+    memcpy(init_coef, coef, sizeof(double) * coef_order);
     memcpy(best_coef, init_coef, sizeof(double) * coef_order);
 
     /* TODO: 係数は順序反転した方がresidualの計算が早そう（要検証） */
@@ -1137,6 +1120,7 @@ static LPCError LPC_CalculateCoefSVR(
         }
     }
 
+    /* 最良係数を記録 */
     memcpy(coef, best_coef, sizeof(double) * coef_order);
 
     return LPC_ERROR_OK;
