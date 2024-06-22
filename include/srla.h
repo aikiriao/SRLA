@@ -7,7 +7,7 @@
 #define SRLA_FORMAT_VERSION         2
 
 /* コーデックバージョン */
-#define SRLA_CODEC_VERSION          4
+#define SRLA_CODEC_VERSION          5
 
 /* ヘッダサイズ */
 #define SRLA_HEADER_SIZE            29
@@ -16,10 +16,10 @@
 #define SRLA_MAX_NUM_CHANNELS       8
 
 /* 最大係数サイズ */
-#define SRLA_MAX_COEFFICIENT_ORDER  128
+#define SRLA_MAX_COEFFICIENT_ORDER  256
 
 /* パラメータプリセット数 */
-#define SRLA_NUM_PARAMETER_PRESETS  14
+#define SRLA_NUM_PARAMETER_PRESETS  18
 
 
 /* API結果型 */
