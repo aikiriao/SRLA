@@ -588,7 +588,7 @@ static void SRLACoder_DecodeRecursiveRice(
             uint32_t uval__;\
             while ((num_samples)--) {\
                 RecursiveRice_GetCode((stream), ((k2_param)+1), (k2_param), &uval__);\
-                *((data)++) = SRLAUTILITY_UINT32_TO_SINT32(uval__);\
+                (*((data)++)) = SRLAUTILITY_UINT32_TO_SINT32(uval__);\
             }\
         }\
         break;
