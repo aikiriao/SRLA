@@ -757,7 +757,6 @@ static SRLABlockDataType SRLAEncoder_DecideBlockDataType(
         struct SRLAEncoder *encoder, const int32_t *const *input, uint32_t num_samples)
 {
     uint32_t ch, smpl;
-    double mean_length;
     const struct SRLAHeader *header;
 
     SRLA_ASSERT(encoder != NULL);
@@ -770,35 +769,6 @@ static SRLABlockDataType SRLAEncoder_DecideBlockDataType(
     }
 
     header = &encoder->header;
-
-    /* 平均符号長の計算 */
-    mean_length = 0.0;
-    for (ch = 0; ch < header->num_channels; ch++) {
-        double len;
-        LPCApiResult ret;
-        const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
-        /* 入力をdouble化 */
-        for (smpl = 0; smpl < num_samples; smpl++) {
-            encoder->buffer_double[smpl] = input[ch][smpl] * norm_const;
-        }
-        /* 推定符号長計算 */
-        ret = LPCCalculator_EstimateCodeLength(encoder->lpcc,
-            encoder->buffer_double, num_samples,
-            header->bits_per_sample, encoder->parameter_preset->max_num_parameters, &len, LPC_WINDOWTYPE_WELCH);
-        SRLA_ASSERT(ret == LPC_APIRESULT_OK);
-        mean_length += len;
-    }
-    mean_length /= header->num_channels;
-
-    /* ビット幅に占める比に変換 */
-    mean_length /= header->bits_per_sample;
-
-    /* データタイプ判定 */
-
-    /* 圧縮が効きにくい: 生データ出力 */
-    if (mean_length >= SRLA_ESTIMATED_CODELENGTH_THRESHOLD) {
-        return SRLA_BLOCK_DATA_TYPE_RAWDATA;
-    }
 
     /* 無音判定 */
     for (ch = 0; ch < header->num_channels; ch++) {
@@ -1315,6 +1285,7 @@ SRLAApiResult SRLAEncoder_EncodeBlock(
     block_type = SRLAEncoder_DecideBlockDataType(encoder, input, num_samples);
     SRLA_ASSERT(block_type != SRLA_BLOCK_DATA_TYPE_INVALID);
 
+ENCODING_BLOCK_START:
     /* ブロックヘッダをエンコード */
     data_ptr = data;
     /* ブロック先頭の同期コード */
@@ -1340,6 +1311,11 @@ SRLAApiResult SRLAEncoder_EncodeBlock(
     case SRLA_BLOCK_DATA_TYPE_COMPRESSDATA:
         ret = SRLAEncoder_EncodeCompressData(encoder, input, num_samples,
                 data_ptr, data_size - block_header_size, &block_data_size);
+        /* エンコードの結果データが増加したら生データブロックに切り替え */
+        if ((8 * block_data_size) >= (header->bits_per_sample * num_samples * header->num_channels)) {
+            block_type = SRLA_BLOCK_DATA_TYPE_RAWDATA;
+            goto ENCODING_BLOCK_START;
+        }
         break;
     case SRLA_BLOCK_DATA_TYPE_SILENT:
         ret = SRLAEncoder_EncodeSilentData(encoder, input, num_samples,
