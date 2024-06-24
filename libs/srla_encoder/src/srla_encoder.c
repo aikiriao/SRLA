@@ -983,9 +983,11 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     }
 
     /* double精度の信号に変換（[-1,1]の範囲に正規化） */
-    const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
-    for (smpl = 0; smpl < num_samples; smpl++) {
-        buffer_double[smpl] = buffer_int[smpl] * norm_const;
+    {
+        const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            buffer_double[smpl] = buffer_int[smpl] * norm_const;
+        }
     }
 
     /* 最大次数まで係数と誤差分散を計算 */
