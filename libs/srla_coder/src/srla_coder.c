@@ -181,10 +181,11 @@ static void Rice_PutCode(struct BitStream *stream, uint32_t k, uint32_t uval)
             /* 1段目で符号化 */\
             BitWriter_PutBits((stream), k1pow__ | (uval), (k1) + 1);\
         } else {\
+            uint32_t uval__ = uval;\
             /* 1段目のパラメータで引き、2段目のパラメータでRice符号化 */\
-            (uval) -= k1pow__;\
-            BitWriter_PutZeroRun((stream), 1 + ((uval) >> (k2)));\
-            BitWriter_PutBits((stream), (uval), (k2));\
+            uval__ -= k1pow__;\
+            BitWriter_PutZeroRun((stream), 1 + (uval__ >> (k2)));\
+            BitWriter_PutBits((stream), uval__, (k2));\
         }\
     } while (0);
 #else
