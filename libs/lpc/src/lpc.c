@@ -372,8 +372,6 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
 
     /* オート変数にポインタをコピー */
     double **a_vecs = lpcc->a_vecs;
-    double *u_vec = lpcc->u_vec;
-    double *v_vec = lpcc->v_vec;
 
     /* 引数チェック */
     if ((lpcc == NULL) || (auto_corr == NULL) || (parcor_coef == NULL)) {
@@ -402,8 +400,6 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
     a_vecs[0][2] = 0.0;
     parcor_coef[0] = auto_corr[1] / error_vars[0];
     error_vars[1] = error_vars[0] + auto_corr[1] * a_vecs[0][1];
-    u_vec[0] = 1.0; u_vec[1] = 0.0;
-    v_vec[0] = 0.0; v_vec[1] = 1.0;
 
     /* 再帰処理 */
     for (k = 1; k < coef_order; k++) {
