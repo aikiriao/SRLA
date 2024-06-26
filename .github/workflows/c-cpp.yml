@@ -129,7 +129,7 @@ jobs:
       if: runner.os == 'Linux' || runner.os == 'macOS'
       uses: actions/upload-artifact@v4
       with:
-        name: artifacts_${{ github.run_id }}
+        name: artifacts_${{ matrix.os }}
         path: |
           artifact_${{ matrix.os }}.tar.gz
 
@@ -137,7 +137,7 @@ jobs:
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
-        name: artifacts_${{ github.run_id }}
+        name: artifacts_${{ matrix.os }}
         path: |
           artifact_${{ matrix.os }}.tar.gz
           artifact_avx2_${{ matrix.os }}.tar.gz
