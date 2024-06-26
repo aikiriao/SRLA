@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-20.04, ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Preparation on Linux
       if: runner.os == 'Linux'
@@ -127,7 +127,7 @@ jobs:
 
     - name: Upload artifacts on UNIX platforms
       if: runner.os == 'Linux' || runner.os == 'macOS'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: artifacts
         path: |
@@ -135,7 +135,7 @@ jobs:
 
     - name: Upload artifacts on Windows
       if: runner.os == 'Windows'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: artifacts
         path: |
