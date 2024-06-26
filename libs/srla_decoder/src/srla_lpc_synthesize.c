@@ -4,13 +4,8 @@
 #include "srla_internal.h"
 #include "srla_utility.h"
 
-/* SSE4.1 / AVX2を使うか
-#define USE_SSE41
-#define USE_AVX2
-*/
-
 /* LPC係数により合成(in-place) */
-#if defined(USE_SSE41)
+#if defined(SRLADECODER_USE_SSE41)
 #ifdef _MSC_VER
 #include <intrin.h>
 #define DECLALIGN(x) __declspec(align(x))
@@ -30,7 +25,9 @@ void SRLALPC_Synthesize(
     SRLA_ASSERT(data != NULL);
     SRLA_ASSERT(coef != NULL);
 
-    smpl = coef_order;
+    for (smpl = 1; smpl < coef_order; smpl++) {
+        data[smpl] += data[smpl - 1];
+    }
 
     if (coef_order >= 4) {
         uint32_t i;
@@ -54,17 +51,17 @@ void SRLALPC_Synthesize(
             __m128i vpred = _mm_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 3 - 4; ord += 4) {
                 const int32_t *dat = &data[smpl - coef_order + ord];
-                vdata = _mm_loadu_epi32(&dat[0]);
+                vdata = _mm_load_si128(&dat[0]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 0], vdata));
-                vdata = _mm_loadu_epi32(&dat[1]);
+                vdata = _mm_loadu_si128(&dat[1]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 1], vdata));
-                vdata = _mm_loadu_epi32(&dat[2]);
+                vdata = _mm_loadu_si128(&dat[2]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 2], vdata));
-                vdata = _mm_loadu_epi32(&dat[3]);
+                vdata = _mm_loadu_si128(&dat[3]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 3], vdata));
             }
             for (; ord < coef_order - 3; ord++) {
-                vdata = _mm_loadu_epi32(&data[smpl - coef_order + ord]);
+                vdata = _mm_loadu_si128(&data[smpl - coef_order + ord]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
             }
             _mm_store_si128(&predict, vpred);
@@ -107,7 +104,7 @@ void SRLALPC_Synthesize(
         data[smpl] -= (predict >> coef_rshift);
     }
 }
-#elif defined(USE_AVX2)
+#elif defined(SRLADECODER_USE_AVX2)
 #ifdef _MSC_VER
 #include <immintrin.h>
 #define DECLALIGN(x) __declspec(align(x))
@@ -126,7 +123,9 @@ void SRLALPC_Synthesize(
     SRLA_ASSERT(data != NULL);
     SRLA_ASSERT(coef != NULL);
 
-    smpl = coef_order;
+    for (smpl = 1; smpl < coef_order; smpl++) {
+        data[smpl] += data[smpl - 1];
+    }
 
     if (coef_order >= 8) {
         uint32_t i;
@@ -142,25 +141,25 @@ void SRLALPC_Synthesize(
             __m256i vpred = _mm256_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 7 - 8; ord += 8) {
                 const int32_t *dat = &data[smpl - coef_order + ord];
-                vdata = _mm256_loadu_epi32(&dat[0]);
+                vdata = _mm256_loadu_si256(&dat[0]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 0], vdata));
-                vdata = _mm256_loadu_epi32(&dat[1]);
+                vdata = _mm256_loadu_si256(&dat[1]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 1], vdata));
-                vdata = _mm256_loadu_epi32(&dat[2]);
+                vdata = _mm256_loadu_si256(&dat[2]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 2], vdata));
-                vdata = _mm256_loadu_epi32(&dat[3]);
+                vdata = _mm256_loadu_si256(&dat[3]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 3], vdata));
-                vdata = _mm256_loadu_epi32(&dat[4]);
+                vdata = _mm256_loadu_si256(&dat[4]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 4], vdata));
-                vdata = _mm256_loadu_epi32(&dat[5]);
+                vdata = _mm256_loadu_si256(&dat[5]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 5], vdata));
-                vdata = _mm256_loadu_epi32(&dat[6]);
+                vdata = _mm256_loadu_si256(&dat[6]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 6], vdata));
-                vdata = _mm256_loadu_epi32(&dat[7]);
+                vdata = _mm256_loadu_si256(&dat[7]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 7], vdata));
             }
             for (; ord < coef_order - 7; ord++) {
-                vdata = _mm256_loadu_epi32(&data[smpl - coef_order + ord]);
+                vdata = _mm256_loadu_si256(&data[smpl - coef_order + ord]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord], vdata));
             }
             _mm256_store_si256(&predict, vpred);
@@ -191,17 +190,17 @@ void SRLALPC_Synthesize(
             __m128i vpred = _mm_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 3 - 4; ord += 4) {
                 const int32_t *dat = &data[smpl - coef_order + ord];
-                vdata = _mm_loadu_epi32(&dat[0]);
+                vdata = _mm_loadu_si128(&dat[0]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 0], vdata));
-                vdata = _mm_loadu_epi32(&dat[1]);
+                vdata = _mm_loadu_si128(&dat[1]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 1], vdata));
-                vdata = _mm_loadu_epi32(&dat[2]);
+                vdata = _mm_loadu_si128(&dat[2]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 2], vdata));
-                vdata = _mm_loadu_epi32(&dat[3]);
+                vdata = _mm_loadu_si128(&dat[3]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 3], vdata));
             }
             for (; ord < coef_order - 3; ord++) {
-                vdata = _mm_loadu_epi32(&data[smpl - coef_order + ord]);
+                vdata = _mm_loadu_si128(&data[smpl - coef_order + ord]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
             }
             _mm_store_si128(&predict, vpred);
@@ -237,6 +236,10 @@ void SRLALPC_Synthesize(
     /* 引数チェック */
     SRLA_ASSERT(data != NULL);
     SRLA_ASSERT(coef != NULL);
+
+    for (smpl = 1; smpl < coef_order; smpl++) {
+        data[smpl] += data[smpl - 1];
+    }
 
     for (smpl = 0; smpl < num_samples - coef_order; smpl++) {
         predict = half;

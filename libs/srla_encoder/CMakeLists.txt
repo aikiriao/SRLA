@@ -41,3 +41,11 @@ set_target_properties(${LIB_NAME}
     C_STANDARD 90 C_EXTENSIONS OFF
     MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
+
+# SIMD命令をどこまで使うか？
+set(USE_SIMD_INTRINSICS "" CACHE STRING "Using SIMD operations (SSE41 or AVX2)")
+if("${USE_SIMD_INTRINSICS}" STREQUAL "SSE41")
+    add_compile_definitions(SRLAENCODER_USE_SSE41)
+elseif("${USE_SIMD_INTRINSICS}" STREQUAL "AVX2")
+    add_compile_definitions(SRLAENCODER_USE_AVX2)
+endif()
