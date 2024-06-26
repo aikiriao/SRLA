@@ -28,7 +28,7 @@ jobs:
 
     - name: Preparation on Windows
       if: runner.os == 'Windows'
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v2
 
     - name: Build libraries
       run: |
