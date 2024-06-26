@@ -82,7 +82,7 @@ jobs:
     - name: Create artifacts on UNIX platform
       if: runner.os == 'Linux' || runner.os == 'macOS'
       run: |
-        ARTIFACT_ROOT=artifact_${{ matrix.os }}_${{ github.run_id }}
+        ARTIFACT_ROOT=artifact_${{ matrix.os }}
         mkdir ${ARTIFACT_ROOT} 
         pushd ${ARTIFACT_ROOT}
         mkdir include && mkdir libs && mkdir tools
@@ -98,7 +98,7 @@ jobs:
       if: runner.os == 'Windows'
       shell: powershell
       run: |
-        $ARTIFACT_ROOT = "artifact_${{ matrix.os }}_${{ github.run_id }}"
+        $ARTIFACT_ROOT = "artifact_${{ matrix.os }}"
         mkdir ${ARTIFACT_ROOT}
         pushd ${ARTIFACT_ROOT}
         mkdir include
@@ -111,7 +111,7 @@ jobs:
         cp tools/srla_codec/build/Release/srla.exe ${ARTIFACT_ROOT}/tools/
         cp tools/srla_player/build/Release/srlaplayer.exe ${ARTIFACT_ROOT}/tools/
         tar -czf "${ARTIFACT_ROOT}.tar.gz" ${ARTIFACT_ROOT} 
-        $ARTIFACT_ROOT_AVX2 = "artifact_avx2_${{ matrix.os }}_${{ github.run_id }}"
+        $ARTIFACT_ROOT_AVX2 = "artifact_avx2_${{ matrix.os }}"
         mkdir ${ARTIFACT_ROOT_AVX2}
         pushd ${ARTIFACT_ROOT_AVX2}
         mkdir include
@@ -129,15 +129,15 @@ jobs:
       if: runner.os == 'Linux' || runner.os == 'macOS'
       uses: actions/upload-artifact@v4
       with:
-        name: artifacts
+        name: artifacts_${{ github.run_id }}
         path: |
-          artifact_${{ matrix.os }}_${{ github.run_id }}.tar.gz
+          artifact_${{ matrix.os }}.tar.gz
 
     - name: Upload artifacts on Windows
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
-        name: artifacts
+        name: artifacts_${{ github.run_id }}
         path: |
-          artifact_${{ matrix.os }}_${{ github.run_id }}.tar.gz
-          artifact_avx2_${{ matrix.os }}_${{ github.run_id }}.tar.gz
+          artifact_${{ matrix.os }}.tar.gz
+          artifact_avx2_${{ matrix.os }}.tar.gz
