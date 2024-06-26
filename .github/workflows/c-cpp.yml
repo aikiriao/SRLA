@@ -36,10 +36,6 @@ jobs:
         cmake --build build_debug --config Debug
         cmake -B build_release -DCMAKE_BUILD_TYPE=Release
         cmake --build build_release --config Release
-        cmake -B build_release_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41
-        cmake --build build_release_sse41 --config Release
-        cmake -B build_release_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2
-        cmake --build build_release_avx2 --config Release
 
     - name: Test
       run: |
@@ -49,24 +45,36 @@ jobs:
         pushd build_release
         ctest -C Release
         popd
-        pushd build_release_sse41
-        ctest -C Release
-        popd
-        pushd build_release_avx2
-        ctest -C Release
-        popd
 
     - name: Build tools
       run: |
         pushd tools/srla_codec
         cmake -B build -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release
-        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2
-        cmake --build build_avx2 --config Release
         popd
         pushd tools/srla_player
         cmake -B build -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release
+        popd
+
+    - name: Make SSE/AVX libraries and tools on Windows
+      if: runner.os == 'Windows'
+      run: |
+        cmake -B build_release_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41
+        cmake --build build_release_sse41 --config Release
+        cmake -B build_release_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2
+        cmake --build build_release_avx2 --config Release
+        pushd build_release_sse41
+        ctest -C Release
+        popd
+        pushd build_release_avx2
+        ctest -C Release
+        popd
+        pushd tools/srla_codec
+        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2
+        cmake --build build_avx2 --config Release
+        popd
+        pushd tools/srla_player
         cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2
         cmake --build build_avx2 --config Release
         popd
@@ -85,17 +93,6 @@ jobs:
         cp tools/srla_codec/build/srla ${ARTIFACT_ROOT}/tools/
         cp tools/srla_player/build/srlaplayer ${ARTIFACT_ROOT}/tools/
         tar -czf ${ARTIFACT_ROOT}.tar.gz ${ARTIFACT_ROOT}
-        ARTIFACT_ROOT_AVX2=artifact_${{ matrix.os }}_avx2
-        mkdir ${ARTIFACT_ROOT_AVX2} 
-        pushd ${ARTIFACT_ROOT_AVX2}
-        mkdir include && mkdir libs && mkdir tools
-        popd
-        cp include/*.h ${ARTIFACT_ROOT_AVX2}/include/
-        cp build_release_avx2/libsrlacodec.a ${ARTIFACT_ROOT_AVX2}/libs/
-        cp build_release_avx2/libsrladec.a ${ARTIFACT_ROOT_AVX2}/libs/
-        cp tools/srla_codec_avx2/build/srla ${ARTIFACT_ROOT_AVX2}/tools/
-        cp tools/srla_player_avx2/build/srlaplayer ${ARTIFACT_ROOT_AVX2}/tools/
-        tar -czf ${ARTIFACT_ROOT_AVX2}.tar.gz ${ARTIFACT_ROOT_AVX2}
 
     - name: Create artifacts on Windows platform
       if: runner.os == 'Windows'
@@ -124,11 +121,20 @@ jobs:
         cp include/*.h ${ARTIFACT_ROOT_AVX2}/include/
         cp build_release_avx2/Release/srlacodec.lib ${ARTIFACT_ROOT_AVX2}/libs/
         cp build_release_avx2/Release/srladec.lib ${ARTIFACT_ROOT_AVX2}/libs/
-        cp tools/srla_codec_avx2/build/Release/srla.exe ${ARTIFACT_ROOT_AVX2}/tools/
-        cp tools/srla_player_avx2/build/Release/srlaplayer.exe ${ARTIFACT_ROOT_AVX2}/tools/
+        cp tools/srla_codec/build_avx2/Release/srla.exe ${ARTIFACT_ROOT_AVX2}/tools/
+        cp tools/srla_player/build_avx2/Release/srlaplayer.exe ${ARTIFACT_ROOT_AVX2}/tools/
         tar -czf "${ARTIFACT_ROOT_AVX2}.tar.gz" ${ARTIFACT_ROOT_AVX2} 
 
-    - name: Upload artifacts
+    - name: Upload artifacts on UNIX platforms
+      if: runner.os == 'Linux' || runner.os == 'macOS'
+      uses: actions/upload-artifact@v3
+      with:
+        name: artifacts
+        path: |
+          artifact_${{ matrix.os }}.tar.gz
+
+    - name: Upload artifacts on Windows
+      if: runner.os == 'Windows'
       uses: actions/upload-artifact@v3
       with:
         name: artifacts
