@@ -444,9 +444,15 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
     /* プリエンファシス */
     for (ch = 0; ch < num_channels; ch++) {
         uint32_t uval;
+        int32_t head;
+        /* プリエンファシス初期前値（全て共通） */
+        BitReader_GetBits(&reader, &uval, header->bits_per_sample + 1U);
+        head = SRLAUTILITY_UINT32_TO_SINT32(uval);
         for (l = 0; l < SRLA_NUM_PREEMPHASIS_FILTERS; l++) {
-            BitReader_GetBits(&reader, &uval, header->bits_per_sample + 1U);
-            decoder->de_emphasis[ch][l].prev = SRLAUTILITY_UINT32_TO_SINT32(uval);
+            decoder->de_emphasis[ch][l].prev = head;
+        }
+        /* プリエンファシス係数 */
+        for (l = 0; l < SRLA_NUM_PREEMPHASIS_FILTERS; l++) {
             /* プリエンファシス係数は正値に制限しているため1bitケチれる */
             BitReader_GetBits(&reader, &uval, SRLA_PREEMPHASIS_COEF_SHIFT - 1);
             decoder->de_emphasis[ch][l].coef = (int32_t)uval;

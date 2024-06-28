@@ -971,15 +971,16 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     parameter_preset = encoder->parameter_preset;
 
     /* プリエンファシスフィルタ群 */
-    for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
-        struct SRLAPreemphasisFilter filter;
-        const int32_t tmp_prev = buffer_int[0];
-        /* 直前値には先頭の同一値が続くと考える */
-        filter.prev = tmp_prev;
-        SRLAPreemphasisFilter_CalculateCoefficient(&filter, buffer_int, num_samples);
-        SRLAPreemphasisFilter_Preemphasis(&filter, buffer_int, num_samples);
-        tmp_pre_emphasis_filters[p].prev = tmp_prev;
-        tmp_pre_emphasis_filters[p].coef = filter.coef;
+    {
+        const int32_t head = buffer_int[0];
+        for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
+            struct SRLAPreemphasisFilter filter = { 0, };
+            filter.prev = head;
+            SRLAPreemphasisFilter_CalculateCoefficient(&filter, buffer_int, num_samples);
+            SRLAPreemphasisFilter_Preemphasis(&filter, buffer_int, num_samples);
+            tmp_pre_emphasis_filters[p].prev = head;
+            tmp_pre_emphasis_filters[p].coef = filter.coef;
+        }
     }
 
     /* double精度の信号に変換（[-1,1]の範囲に正規化） */
@@ -1043,8 +1044,8 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     tmp_code_length += SRLACoder_ComputeCodeLength(encoder->coder, residual_int, num_samples);
 
     /* プリエンファシスフィルタのバッファ/係数 */
+    tmp_code_length += header->bits_per_sample + 1;
     for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
-        tmp_code_length += header->bits_per_sample + 1;
         tmp_code_length += SRLA_PREEMPHASIS_COEF_SHIFT - 1;
     }
 
@@ -1194,11 +1195,11 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     /* プリエンファシス */
     for (ch = 0; ch < header->num_channels; ch++) {
         uint32_t p, uval;
+        /* プリエンファシスフィルタのバッファ */
+        uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->pre_emphasis[ch][0].prev);
+        SRLA_ASSERT(uval < (1U << (header->bits_per_sample + 1)));
+        BitWriter_PutBits(&writer, uval, header->bits_per_sample + 1);
         for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
-            /* プリエンファシスフィルタのバッファ */
-            uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->pre_emphasis[ch][p].prev);
-            SRLA_ASSERT(uval < (1U << (header->bits_per_sample + 1)));
-            BitWriter_PutBits(&writer, uval, header->bits_per_sample + 1);
             /* プリエンファシス係数は正値に制限しているため1bitケチれる */
             SRLA_ASSERT(encoder->pre_emphasis[ch][p].coef >= 0);
             uval = (uint32_t)encoder->pre_emphasis[ch][p].coef;
