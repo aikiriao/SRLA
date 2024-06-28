@@ -90,7 +90,7 @@ jobs:
     - name: Create artifacts on UNIX platform
       if: runner.os == 'Linux' || runner.os == 'macOS'
       run: |
-        ARTIFACT_ROOT=artifact_${{ matrix.os }}
+        ARTIFACT_ROOT=srla_${{ matrix.os }}
         mkdir ${ARTIFACT_ROOT} 
         pushd ${ARTIFACT_ROOT}
         mkdir include && mkdir libs && mkdir tools
@@ -106,7 +106,7 @@ jobs:
       if: runner.os == 'Windows'
       shell: powershell
       run: |
-        $ARTIFACT_ROOT = "artifact_${{ matrix.os }}"
+        $ARTIFACT_ROOT = "srla_${{ matrix.os }}"
         mkdir ${ARTIFACT_ROOT}
         pushd ${ARTIFACT_ROOT}
         mkdir include
@@ -119,7 +119,7 @@ jobs:
         cp tools/srla_codec/build/Release/srla.exe ${ARTIFACT_ROOT}/tools/
         cp tools/srla_player/build/Release/srlaplayer.exe ${ARTIFACT_ROOT}/tools/
         tar -czf "${ARTIFACT_ROOT}.tar.gz" ${ARTIFACT_ROOT} 
-        $ARTIFACT_ROOT_SSE41 = "artifact_${{ matrix.os }}_sse41"
+        $ARTIFACT_ROOT_SSE41 = "srla_${{ matrix.os }}_sse41"
         mkdir ${ARTIFACT_ROOT_SSE41}
         pushd ${ARTIFACT_ROOT_SSE41}
         mkdir include
@@ -132,7 +132,7 @@ jobs:
         cp tools/srla_codec/build_sse41/Release/srla.exe ${ARTIFACT_ROOT_SSE41}/tools/
         cp tools/srla_player/build_sse41/Release/srlaplayer.exe ${ARTIFACT_ROOT_SSE41}/tools/
         tar -czf "${ARTIFACT_ROOT_SSE41}.tar.gz" ${ARTIFACT_ROOT_SSE41} 
-        $ARTIFACT_ROOT_AVX2 = "artifact_${{ matrix.os }}_avx2"
+        $ARTIFACT_ROOT_AVX2 = "srla_${{ matrix.os }}_avx2"
         mkdir ${ARTIFACT_ROOT_AVX2}
         pushd ${ARTIFACT_ROOT_AVX2}
         mkdir include
@@ -152,7 +152,7 @@ jobs:
       with:
         name: artifacts_${{ matrix.os }}
         path: |
-          artifact_${{ matrix.os }}.tar.gz
+          srla_${{ matrix.os }}.tar.gz
 
     - name: Upload artifacts on Windows
       if: runner.os == 'Windows'
@@ -160,5 +160,5 @@ jobs:
       with:
         name: artifacts_${{ matrix.os }}
         path: |
-          artifact_${{ matrix.os }}.tar.gz
-          artifact_${{ matrix.os }}_avx2.tar.gz
+          srla_${{ matrix.os }}.tar.gz
+          srla_${{ matrix.os }}_avx2.tar.gz
