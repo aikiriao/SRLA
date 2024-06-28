@@ -161,4 +161,5 @@ jobs:
         name: artifacts_${{ matrix.os }}
         path: |
           srla_${{ matrix.os }}.tar.gz
+          srla_${{ matrix.os }}_sse41.tar.gz
           srla_${{ matrix.os }}_avx2.tar.gz
