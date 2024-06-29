@@ -850,7 +850,7 @@ static SRLAApiResult SRLAEncoder_EncodeRawData(
 /* Recursive Golomb-Rice符号の平均符号長 */
 static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint32_t bps)
 {
-    const double intmean = mean_abs_error * (1 << bps); /* 整数量子化した時の平均値 */
+    const double intmean = mean_abs_error * (1 << (bps - 1)); /* 整数量子化した時の平均値 */
     const double rho = 1.0 / (1.0 + intmean);
     const uint32_t k2 = (uint32_t)SRLAUTILITY_MAX(0, SRLAUtility_Log2(log(0.5127629514) / log(1.0 - rho)));
     const uint32_t k1 = k2 + 1;
@@ -892,8 +892,8 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
                 }
                 mabse += SRLAUTILITY_ABS(residual);
             }
-            /* 残差符号のサイズ */
-            len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse / num_samples, header->bits_per_sample) * num_samples;
+            /* 残差符号のサイズ 符号化で非負整数化するため2倍 */
+            len = SRLAEncoder_CalculateRGRMeanCodeLength(2.0 * mabse / num_samples, header->bits_per_sample) * num_samples;
             /* 係数のサイズ */
             len += SRLA_LPC_COEFFICIENT_BITWIDTH * order;
             if (minlen > len) {
