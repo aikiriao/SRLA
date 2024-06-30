@@ -1054,6 +1054,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     tmp_code_length += SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH;
     for (p = 0; p < tmp_coef_order; p++) {
         const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(tmp_int_coef[p]);
+        SRLA_ASSERT(uval < STATICHUFFMAN_MAX_NUM_SYMBOLS);
         tmp_code_length += encoder->param_codes.codes[uval].bit_count;
     }
 
