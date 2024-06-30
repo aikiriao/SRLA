@@ -6,7 +6,7 @@
 #include <assert.h>
 
 /* パーサの読み込みバッファサイズ */
-#define WAVBITBUFFER_BUFFER_SIZE         (10 * 1024)
+#define WAVBITBUFFER_BUFFER_SIZE         (128 * 1024)
 
 /* 下位n_bitsを取得 */
 /* 補足）((1 << n_bits) - 1)は下位の数値だけ取り出すマスクになる */
