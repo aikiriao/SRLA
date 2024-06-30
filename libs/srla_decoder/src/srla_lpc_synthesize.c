@@ -51,20 +51,20 @@ void SRLALPC_Synthesize(
             __m128i vpred = _mm_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 3 - 4; ord += 4) {
                 const int32_t *dat = &data[smpl - coef_order + ord];
-                vdata = _mm_load_si128(&dat[0]);
+                vdata = _mm_load_si128((const __m128i *)&dat[0]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 0], vdata));
-                vdata = _mm_loadu_si128(&dat[1]);
+                vdata = _mm_loadu_si128((const __m128i *)&dat[1]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 1], vdata));
-                vdata = _mm_loadu_si128(&dat[2]);
+                vdata = _mm_loadu_si128((const __m128i *)&dat[2]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 2], vdata));
-                vdata = _mm_loadu_si128(&dat[3]);
+                vdata = _mm_loadu_si128((const __m128i *)&dat[3]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 3], vdata));
             }
             for (; ord < coef_order - 3; ord++) {
-                vdata = _mm_loadu_si128(&data[smpl - coef_order + ord]);
+                vdata = _mm_loadu_si128((const __m128i *)&data[smpl - coef_order + ord]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
             }
-            _mm_store_si128(predict, vpred);
+            _mm_store_si128((__m128i *)predict, vpred);
 
             /* ord = coef_order - 3 */
             /* data[smpl + 0] .. data[smpl + 2]に依存関係があるため処理
@@ -141,28 +141,28 @@ void SRLALPC_Synthesize(
             __m256i vpred = _mm256_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 7 - 8; ord += 8) {
                 const int32_t *dat = &data[smpl - coef_order + ord];
-                vdata = _mm256_loadu_si256(&dat[0]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[0]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 0], vdata));
-                vdata = _mm256_loadu_si256(&dat[1]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[1]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 1], vdata));
-                vdata = _mm256_loadu_si256(&dat[2]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[2]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 2], vdata));
-                vdata = _mm256_loadu_si256(&dat[3]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[3]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 3], vdata));
-                vdata = _mm256_loadu_si256(&dat[4]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[4]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 4], vdata));
-                vdata = _mm256_loadu_si256(&dat[5]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[5]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 5], vdata));
-                vdata = _mm256_loadu_si256(&dat[6]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[6]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 6], vdata));
-                vdata = _mm256_loadu_si256(&dat[7]);
+                vdata = _mm256_loadu_si256((const __m256i *)&dat[7]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord + 7], vdata));
             }
             for (; ord < coef_order - 7; ord++) {
-                vdata = _mm256_loadu_si256(&data[smpl - coef_order + ord]);
+                vdata = _mm256_loadu_si256((const __m256i *)&data[smpl - coef_order + ord]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord], vdata));
             }
-            _mm256_store_si256(predict, vpred);
+            _mm256_store_si256((__m256i *)predict, vpred);
 
             /* ord = coef_order - 7 */
             for (i = 0; i < 8; i++) {
@@ -190,20 +190,20 @@ void SRLALPC_Synthesize(
             __m128i vpred = _mm_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 3 - 4; ord += 4) {
                 const int32_t *dat = &data[smpl - coef_order + ord];
-                vdata = _mm_loadu_si128(&dat[0]);
+                vdata = _mm_loadu_si128((const __m128i *)&dat[0]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 0], vdata));
-                vdata = _mm_loadu_si128(&dat[1]);
+                vdata = _mm_loadu_si128((const __m128i *)&dat[1]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 1], vdata));
-                vdata = _mm_loadu_si128(&dat[2]);
+                vdata = _mm_loadu_si128((const __m128i *)&dat[2]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 2], vdata));
-                vdata = _mm_loadu_si128(&dat[3]);
+                vdata = _mm_loadu_si128((const __m128i *)&dat[3]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 3], vdata));
             }
             for (; ord < coef_order - 3; ord++) {
-                vdata = _mm_loadu_si128(&data[smpl - coef_order + ord]);
+                vdata = _mm_loadu_si128((const __m128i *)&data[smpl - coef_order + ord]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
             }
-            _mm_store_si128(predict, vpred);
+            _mm_store_si128((__m128i *)predict, vpred);
 
             /* ord = coef_order - 3 */
             for (i = 0; i < 4; i++) {
