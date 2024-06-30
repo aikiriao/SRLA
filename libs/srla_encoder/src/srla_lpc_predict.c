@@ -64,7 +64,7 @@ void SRLALPC_Predict(
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord + 3], vdata));
             }
             for (; ord < coef_order - 3; ord++) {
-                vdata = _mm_loadu_si128(&data[smpl - coef_order + ord]);
+                vdata = _mm_loadu_si128((__m128i *)&data[smpl - coef_order + ord]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
             }
             _mm_store_si128((__m128i *)predict, vpred);
