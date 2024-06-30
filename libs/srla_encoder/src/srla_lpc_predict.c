@@ -4,7 +4,7 @@
 #include "srla_internal.h"
 
 /* LPC係数により予測/誤差出力 */
-#if defined(SRLAENCODER_USE_SSE41)
+#if defined(SRLA_USE_SSE41)
 #ifdef _MSC_VER
 #include <intrin.h>
 #define DECLALIGN(x) __declspec(align(x))
@@ -107,7 +107,7 @@ void SRLALPC_Predict(
         residual[smpl] += (predict >> coef_rshift);
     }
 }
-#elif defined(SRLAENCODER_USE_AVX2)
+#elif defined(SRLA_USE_AVX2)
 #ifdef _MSC_VER
 #include <immintrin.h>
 #define DECLALIGN(x) __declspec(align(x))

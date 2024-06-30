@@ -5,7 +5,7 @@
 #include "srla_utility.h"
 
 /* LPC係数により合成(in-place) */
-#if defined(SRLADECODER_USE_SSE41)
+#if defined(SRLA_USE_SSE41)
 #ifdef _MSC_VER
 #include <intrin.h>
 #define DECLALIGN(x) __declspec(align(x))
@@ -104,7 +104,7 @@ void SRLALPC_Synthesize(
         data[smpl] -= (predict >> coef_rshift);
     }
 }
-#elif defined(SRLADECODER_USE_AVX2)
+#elif defined(SRLA_USE_AVX2)
 #ifdef _MSC_VER
 #include <immintrin.h>
 #define DECLALIGN(x) __declspec(align(x))

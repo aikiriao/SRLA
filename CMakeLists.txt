@@ -27,6 +27,28 @@ add_library(${DECODER_LIB_NAME}
     $<TARGET_OBJECTS:bit_stream>
     )
 
+# SIMD命令をどこまで使うか？
+set(USE_SIMD_INTRINSICS "" CACHE STRING "Using SIMD operations (SSE41 or AVX2)")
+if("${USE_SIMD_INTRINSICS}" STREQUAL "SSE41")
+    add_compile_definitions(SRLA_USE_SSE41)
+    if(NOT MSVC)
+        add_compile_options(-msse4.1)
+    endif()
+elseif("${USE_SIMD_INTRINSICS}" STREQUAL "AVX2")
+    add_compile_definitions(SRLA_USE_AVX2)
+    if(MSVC)
+        add_compile_options(/arch:AVX2)
+    else()
+        add_compile_options(-msse4.1 -mavx2)
+    endif()
+endif()
+
+# 最適化オプション
+if(MSVC)
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Oi /Ot /Oy /GL")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
+endif()
+
 # 依存するプロジェクト
 add_subdirectory(libs)
 
