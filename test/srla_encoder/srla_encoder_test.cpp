@@ -542,7 +542,7 @@ TEST(SRLAEncoderTest, EncodeBlockTest)
             input[ch] = (int32_t *)malloc(sizeof(int32_t) * parameter.max_num_samples_per_block);
             /* 乱数データ */
             for (smpl = 0; smpl < parameter.max_num_samples_per_block; smpl++) {
-                input[ch][smpl] = rand();
+                input[ch][smpl] = rand() % (1 << parameter.bits_per_sample);
             }
         }
 
