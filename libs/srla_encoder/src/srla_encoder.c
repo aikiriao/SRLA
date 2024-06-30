@@ -51,6 +51,7 @@ struct SRLAEncoder {
     double **multiple_lpc_coefs; /* 各次数の予測係数 */
     uint32_t *partitions_buffer; /* 最適な分割設定の記録領域 */
     struct StaticHuffmanCodes param_codes; /* パラメータ符号化用Huffman符号 */
+    struct StaticHuffmanCodes sum_param_codes; /* 和をとったパラメータ符号化用Huffman符号 */
     const struct SRLAParameterPreset *parameter_preset; /* パラメータプリセット */
     uint8_t alloced_by_own; /* 領域を自前確保しているか？ */
     void *work; /* ワーク領域先頭ポインタ */
@@ -702,12 +703,8 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     }
 
     /* ハフマン符号作成 */
-    {
-        struct StaticHuffmanTree tree;
-        StaticHuffman_BuildHuffmanTree(g_parameter_frequency_table,
-            sizeof(g_parameter_frequency_table) / sizeof(g_parameter_frequency_table[0]), &tree);
-        StaticHuffman_ConvertTreeToCodes(&tree, &encoder->param_codes);
-    }
+    StaticHuffman_ConvertTreeToCodes(SRLA_GetParameterHuffmanTree(), &encoder->param_codes);
+    StaticHuffman_ConvertTreeToCodes(SRLA_GetSumParameterHuffmanTree(), &encoder->sum_param_codes);
 
     return encoder;
 }
@@ -1090,7 +1087,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
                 tmp_use_sum_coef = 0;
                 break;
             }
-            summed_coef_code_length += encoder->param_codes.codes[uval].bit_count;
+            summed_coef_code_length += encoder->sum_param_codes.codes[uval].bit_count;
             if (summed_coef_code_length >= coef_code_length) {
                 tmp_use_sum_coef = 0;
                 break;
@@ -1279,7 +1276,7 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
                 const int32_t summed = encoder->params_int[ch][i] + encoder->params_int[ch][i - 1];
                 uval = SRLAUTILITY_SINT32_TO_UINT32(summed);
                 SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
-                StaticHuffman_PutCode(&encoder->param_codes, &writer, uval);
+                StaticHuffman_PutCode(&encoder->sum_param_codes, &writer, uval);
             }
         }
     }

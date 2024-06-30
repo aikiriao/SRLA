@@ -12,7 +12,7 @@ add_executable(${TEST_NAME} main.cpp)
 include_directories(${PROJECT_ROOT_PATH}/libs/srla_internal/include)
 
 # リンクするライブラリ
-target_link_libraries(${TEST_NAME} gtest gtest_main)
+target_link_libraries(${TEST_NAME} gtest gtest_main bit_stream static_huffman)
 if (NOT MSVC)
 target_link_libraries(${TEST_NAME} pthread)
 endif()

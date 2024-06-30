@@ -30,7 +30,8 @@ struct SRLADecoder {
     int32_t **params_int; /* 各チャンネルのLPC係数(int) */
     uint32_t *rshifts; /* 各チャンネルのLPC係数右シフト量 */
     uint32_t *coef_order; /* 各チャンネルのLPC係数次数 */
-    struct StaticHuffmanTree param_tree; /* 係数のハフマン木 */
+    const struct StaticHuffmanTree* param_tree; /* 係数のハフマン木 */
+    const struct StaticHuffmanTree* sum_param_tree; /* 和を取った係数のハフマン木 */
     const struct SRLAParameterPreset *parameter_preset; /* パラメータプリセット */
     uint8_t status_flags; /* 内部状態フラグ */
     void *work; /* ワーク領域先頭ポインタ */
@@ -279,8 +280,8 @@ struct SRLADecoder *SRLADecoder_Create(const struct SRLADecoderConfig *config, v
     }
 
     /* ハフマン木作成 */
-    StaticHuffman_BuildHuffmanTree(g_parameter_frequency_table,
-        sizeof(g_parameter_frequency_table) / sizeof(g_parameter_frequency_table[0]), &decoder->param_tree);
+    decoder->param_tree = SRLA_GetParameterHuffmanTree();
+    decoder->sum_param_tree = SRLA_GetSumParameterHuffmanTree();
 
     return decoder;
 }
@@ -471,14 +472,14 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         /* 和をとって符号化しているかで場合分け */
         if (!use_sum_coef) {
             for (i = 0; i < decoder->coef_order[ch]; i++) {
-                uval = StaticHuffman_GetCode(&decoder->param_tree, &reader);
+                uval = StaticHuffman_GetCode(decoder->param_tree, &reader);
                 decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
             }
         } else {
-            uval = StaticHuffman_GetCode(&decoder->param_tree, &reader);
+            uval = StaticHuffman_GetCode(decoder->param_tree, &reader);
             decoder->params_int[ch][0] = SRLAUTILITY_UINT32_TO_SINT32(uval);
             for (i = 1; i < decoder->coef_order[ch]; i++) {
-                uval = StaticHuffman_GetCode(&decoder->param_tree, &reader);
+                uval = StaticHuffman_GetCode(decoder->sum_param_tree, &reader);
                 decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
                 /* 差をとって元に戻す */
                 decoder->params_int[ch][i] -= decoder->params_int[ch][i - 1];

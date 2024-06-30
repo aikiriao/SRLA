@@ -3,6 +3,7 @@
 
 #include "srla.h"
 #include "srla_stdint.h"
+#include "static_huffman.h"
 
 /* 本ライブラリのメモリアラインメント */
 #define SRLA_MEMORY_ALIGNMENT 16
@@ -95,8 +96,12 @@ extern "C" {
 /* パラメータプリセット配列 */
 extern const struct SRLAParameterPreset g_srla_parameter_preset[];
 
-/* パラメータ頻度配列 */
-extern const uint32_t g_parameter_frequency_table[256];
+/* パラメータ符号用のハフマン木を取得 */
+const struct StaticHuffmanTree* SRLA_GetParameterHuffmanTree(void);
+
+/* 和をとったパラメータ符号用のハフマン木を取得 */
+const struct StaticHuffmanTree *SRLA_GetSumParameterHuffmanTree(void);
+
 
 #ifdef __cplusplus
 }

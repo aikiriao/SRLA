@@ -18,6 +18,8 @@ add_subdirectory(src)
 target_include_directories(${LIB_NAME}
     PRIVATE
     ${PROJECT_ROOT_PATH}/include
+    ${PROJECT_ROOT_PATH}/libs/bit_stream/include
+    ${PROJECT_ROOT_PATH}/libs/static_huffman/include
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
