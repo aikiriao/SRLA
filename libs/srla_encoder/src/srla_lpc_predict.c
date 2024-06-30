@@ -144,7 +144,7 @@ void SRLALPC_Predict(
         }
         for (; smpl < num_samples - coef_order - 8; smpl += 8) {
             /* 8サンプル並列に処理 */
-            DECLALIGN(16) int32_t predict[8];
+            DECLALIGN(32) int32_t predict[8];
             __m256i vdata;
             __m256i vpred = _mm256_set1_epi32(half);
             for (ord = 0; ord < (int32_t)coef_order - 7 - 8; ord += 8) {
