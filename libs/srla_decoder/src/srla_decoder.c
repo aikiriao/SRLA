@@ -460,16 +460,29 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
     }
     /* LPC係数次数/LPC係数右シフト量/LPC係数 */
     for (ch = 0; ch < num_channels; ch++) {
-        uint32_t i, uval;
+        uint32_t i, uval, use_sum_coef;
         /* LPC係数次数 */
         BitReader_GetBits(&reader, &decoder->coef_order[ch], SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
         decoder->coef_order[ch] += 1; /* -1してエンコードしてあるので戻す */
         /* 各レイヤーでのLPC係数右シフト量 */
         BitReader_GetBits(&reader, &decoder->rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
         /* LPC係数 */
-        for (i = 0; i < decoder->coef_order[ch]; i++) {
+        BitReader_GetBits(&reader, &use_sum_coef, 1);
+        /* 和をとって符号化しているかで場合分け */
+        if (!use_sum_coef) {
+            for (i = 0; i < decoder->coef_order[ch]; i++) {
+                uval = StaticHuffman_GetCode(&decoder->param_tree, &reader);
+                decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
+            }
+        } else {
             uval = StaticHuffman_GetCode(&decoder->param_tree, &reader);
-            decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
+            decoder->params_int[ch][0] = SRLAUTILITY_UINT32_TO_SINT32(uval);
+            for (i = 1; i < decoder->coef_order[ch]; i++) {
+                uval = StaticHuffman_GetCode(&decoder->param_tree, &reader);
+                decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
+                /* 差をとって元に戻す */
+                decoder->params_int[ch][i] -= decoder->params_int[ch][i - 1];
+            }
         }
     }
 

@@ -4,7 +4,7 @@
 #include "srla_stdint.h"
 
 /* フォーマットバージョン */
-#define SRLA_FORMAT_VERSION         3
+#define SRLA_FORMAT_VERSION         4
 
 /* コーデックバージョン */
 #define SRLA_CODEC_VERSION          5

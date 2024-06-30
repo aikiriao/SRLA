@@ -36,6 +36,7 @@ struct SRLAEncoder {
     int32_t **params_int; /* 各チャンネルのLPC係数(int) */
     uint32_t *coef_rshifts; /* 各チャンネルのLPC係数右シフト量 */
     uint32_t *coef_order; /* 各チャンネルのLPC係数次数 */
+    uint32_t *use_sum_coef; /* 各チャンネルでLPC係数を和をとって符号化しているか */
     int32_t **buffer_int; /* 信号バッファ(int) */
     int32_t **residual; /* 残差信号 */
     int32_t **ms_buffer_int; /* MS信号バッファ */
@@ -43,6 +44,7 @@ struct SRLAEncoder {
     struct SRLAPreemphasisFilter **ms_pre_emphasis; /* プリエンファシスフィルタ(MS) */
     uint32_t *ms_coef_rshifts; /* LPC係数右シフト量(MS) */
     uint32_t *ms_coef_order; /* LPC係数次数(MS) */
+    uint32_t *ms_use_sum_coef; /* LPC係数を和をとって符号化しているか(MS) */
     int32_t **ms_params_int; /* LPC係数(MS) */
     double *buffer_double; /* 信号バッファ(double) */
     double *error_vars; /* 各予測係数の残差分散列 */
@@ -508,6 +510,10 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
     /* MSチャンネルのLPC係数次数 */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * 2);
+    /* 各チャンネルLPC係数を和をとって符号化しているかのフラグ */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
+    /* MSチャンネルのLPC係数を和をとって符号化しているかのフラグ */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * 2);
     /* 信号処理バッファのサイズ */
     work_size += (int32_t)(2 * SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block));
     work_size += (int32_t)(config->max_num_samples_per_block * sizeof(double) + SRLA_MEMORY_ALIGNMENT);
@@ -643,6 +649,14 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     /* LPC係数次数(MS) */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
     encoder->ms_coef_order = (uint32_t *)work_ptr;
+    work_ptr += 2 * sizeof(uint32_t);
+    /* LPC係数を和をとって符号化しているかのフラグ */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    encoder->use_sum_coef = (uint32_t *)work_ptr;
+    work_ptr += config->max_num_channels * sizeof(uint32_t);
+    /* LPC係数を和をとって符号化しているかのフラグ(MS) */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    encoder->ms_use_sum_coef = (uint32_t *)work_ptr;
     work_ptr += 2 * sizeof(uint32_t);
 
     /* 信号処理用バッファ領域 */
@@ -945,8 +959,8 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
 static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     struct SRLAEncoder *encoder,
     int32_t *buffer_int, double *buffer_double, int32_t *residual_int, uint32_t num_samples,
-    struct SRLAPreemphasisFilter *pre_emphasis_filters, uint32_t *coef_order, uint32_t *coef_rshift, int32_t *int_coef,
-    uint32_t *code_length)
+    struct SRLAPreemphasisFilter *pre_emphasis_filters, uint32_t *coef_order, uint32_t *coef_rshift,
+    int32_t *int_coef, uint32_t *use_sum_coef, uint32_t *code_length)
 {
     uint32_t smpl, p;
     LPCApiResult ret;
@@ -958,12 +972,13 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     uint32_t tmp_coef_rshift;
     double double_coef[SRLA_MAX_COEFFICIENT_ORDER];
     int32_t tmp_int_coef[SRLA_MAX_COEFFICIENT_ORDER];
+    uint32_t tmp_use_sum_coef;
     uint32_t tmp_code_length;
 
     /* 引数チェック */
     if ((encoder == NULL) || (buffer_int == NULL) || (buffer_double == NULL) || (residual_int == NULL)
         || (pre_emphasis_filters == NULL) || (coef_order == NULL) || (coef_rshift == NULL) || (int_coef == NULL)
-        || (code_length == NULL)) {
+        || (use_sum_coef == NULL) || (code_length == NULL)) {
         return SRLA_ERROR_INVALID_ARGUMENT;
     }
 
@@ -1049,13 +1064,40 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         tmp_code_length += SRLA_PREEMPHASIS_COEF_SHIFT - 1;
     }
 
-    /* LPC係数次数/LPC係数右シフト量/LPC係数 */
+    /* LPC係数次数/LPC係数右シフト量 */
     tmp_code_length += SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH;
     tmp_code_length += SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH;
-    for (p = 0; p < tmp_coef_order; p++) {
-        const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(tmp_int_coef[p]);
-        SRLA_ASSERT(uval < STATICHUFFMAN_MAX_NUM_SYMBOLS);
-        tmp_code_length += encoder->param_codes.codes[uval].bit_count;
+
+    /* LPC係数領域 */
+    {
+        uint32_t coef_code_length = 0, summed_coef_code_length;
+
+        /* 和をとらない形式で符号長計算 */
+        for (p = 0; p < tmp_coef_order; p++) {
+            const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(tmp_int_coef[p]);
+            SRLA_ASSERT(uval < STATICHUFFMAN_MAX_NUM_SYMBOLS);
+            coef_code_length += encoder->param_codes.codes[uval].bit_count;
+        }
+
+        /* 和をとって符号長計算 */
+        tmp_use_sum_coef = 1;
+        summed_coef_code_length
+            = encoder->param_codes.codes[SRLAUTILITY_SINT32_TO_UINT32(tmp_int_coef[0])].bit_count;
+        for (p = 1; p < tmp_coef_order; p++) {
+            const int32_t summed = tmp_int_coef[p] + tmp_int_coef[p - 1];
+            const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(summed);
+            if (uval >= STATICHUFFMAN_MAX_NUM_SYMBOLS) {
+                tmp_use_sum_coef = 0;
+                break;
+            }
+            summed_coef_code_length += encoder->param_codes.codes[uval].bit_count;
+            if (summed_coef_code_length >= coef_code_length) {
+                tmp_use_sum_coef = 0;
+                break;
+            }
+        }
+
+        tmp_code_length += (tmp_use_sum_coef) ? summed_coef_code_length : coef_code_length;
     }
 
     /* 結果の出力 */
@@ -1064,6 +1106,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     (*coef_order) = tmp_coef_order;
     (*coef_rshift) = tmp_coef_rshift;
     memcpy(int_coef, tmp_int_coef, sizeof(int32_t) * tmp_coef_order);
+    (*use_sum_coef) = tmp_use_sum_coef;
     (*code_length) = tmp_code_length;
 
     return SRLA_ERROR_OK;
@@ -1113,8 +1156,8 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
             SRLAError err;
             if ((err = SRLAEncoder_ComputeCoefficientsPerChannel(encoder,
                 encoder->ms_buffer_int[ch], encoder->buffer_double, encoder->ms_residual[ch], num_samples,
-                encoder->ms_pre_emphasis[ch], &encoder->ms_coef_order[ch], &encoder->ms_coef_rshifts[ch], encoder->ms_params_int[ch],
-                &ms_code_length[ch])) != SRLA_ERROR_OK) {
+                encoder->ms_pre_emphasis[ch], &encoder->ms_coef_order[ch], &encoder->ms_coef_rshifts[ch],
+                encoder->ms_params_int[ch], &encoder->ms_use_sum_coef[ch], &ms_code_length[ch])) != SRLA_ERROR_OK) {
                 return SRLA_APIRESULT_NG;
             }
         }
@@ -1124,8 +1167,8 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         SRLAError err;
         if ((err = SRLAEncoder_ComputeCoefficientsPerChannel(encoder,
             encoder->buffer_int[ch], encoder->buffer_double, encoder->residual[ch], num_samples,
-            encoder->pre_emphasis[ch], &encoder->coef_order[ch], &encoder->coef_rshifts[ch], encoder->params_int[ch],
-            &code_length[ch])) != SRLA_ERROR_OK) {
+            encoder->pre_emphasis[ch], &encoder->coef_order[ch], &encoder->coef_rshifts[ch],
+            encoder->params_int[ch], &encoder->use_sum_coef[ch], &code_length[ch])) != SRLA_ERROR_OK) {
             return SRLA_APIRESULT_NG;
         }
     }
@@ -1164,6 +1207,7 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
                 encoder->coef_rshifts[ch] = encoder->ms_coef_rshifts[ch];
                 memcpy(encoder->params_int[ch], encoder->ms_params_int[ch],
                     sizeof(int32_t) * encoder->ms_coef_order[ch]);
+                encoder->use_sum_coef[ch] = encoder->ms_use_sum_coef[ch];
                 tmpp = encoder->residual[ch];
                 encoder->residual[ch] = encoder->ms_residual[ch];
                 encoder->ms_residual[ch] = tmpp;
@@ -1178,6 +1222,7 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
             encoder->coef_rshifts[dst_ch] = encoder->ms_coef_rshifts[src_ch];
             memcpy(encoder->params_int[dst_ch], encoder->ms_params_int[src_ch],
                 sizeof(int32_t) * encoder->ms_coef_order[src_ch]);
+            encoder->use_sum_coef[dst_ch] = encoder->ms_use_sum_coef[src_ch];
             tmpp = encoder->residual[dst_ch];
             encoder->residual[dst_ch] = encoder->ms_residual[src_ch];
             encoder->ms_residual[src_ch] = tmpp;
@@ -1219,10 +1264,23 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         SRLA_ASSERT(encoder->coef_rshifts[ch] < (1U << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
         BitWriter_PutBits(&writer, encoder->coef_rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
         /* LPC係数 */
-        for (i = 0; i < encoder->coef_order[ch]; i++) {
-            uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][i]);
+        BitWriter_PutBits(&writer, encoder->use_sum_coef[ch], 1); /* 和をとって記録したかのフラグ */
+        if (!encoder->use_sum_coef[ch]) {
+            for (i = 0; i < encoder->coef_order[ch]; i++) {
+                uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][i]);
+                SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
+                StaticHuffman_PutCode(&encoder->param_codes, &writer, uval);
+            }
+        } else {
+            uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][0]);
             SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
             StaticHuffman_PutCode(&encoder->param_codes, &writer, uval);
+            for (i = 1; i < encoder->coef_order[ch]; i++) {
+                const int32_t summed = encoder->params_int[ch][i] + encoder->params_int[ch][i - 1];
+                uval = SRLAUTILITY_SINT32_TO_UINT32(summed);
+                SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
+                StaticHuffman_PutCode(&encoder->param_codes, &writer, uval);
+            }
         }
     }
 
