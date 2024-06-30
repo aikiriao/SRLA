@@ -296,8 +296,8 @@ static SRLAError SRLAOptimalBlockPartitionCalculator_ApplyDijkstraMethod(
 /* 最適なブロック分割の探索 */
 static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
     struct SRLAEncoder *encoder,
-    const int32_t *const *input, uint32_t num_samples, uint8_t *data, uint32_t data_size,
-    uint32_t min_num_block_samples, uint32_t *optimal_num_partitions, uint32_t *optimal_block_partition)
+    const int32_t *const *input, uint32_t num_samples, uint32_t min_num_block_samples,
+    uint32_t *optimal_num_partitions, uint32_t *optimal_block_partition)
 {
     uint32_t i, j, ch;
     uint32_t num_channels, num_nodes, tmp_optimal_num_partitions, tmp_node;
@@ -349,10 +349,12 @@ static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
             {
                 /* エンコードして長さを計測 */
                 uint32_t encode_len;
-                if (SRLAEncoder_EncodeBlock(encoder,
-                        data_ptr, num_block_samples, data, data_size, &encode_len) != SRLA_APIRESULT_OK) {
+
+                if (SRLAEncoder_ComputeBlockSize(encoder,
+                    data_ptr, num_block_samples, &encode_len) != SRLA_APIRESULT_OK) {
                     return SRLA_ERROR_NG;
                 }
+
                 code_length = encode_len;
                 /* TODO: 推定長さでも試す */
             }
@@ -1065,6 +1067,9 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     tmp_code_length += SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH;
     tmp_code_length += SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH;
 
+    /* 和をとったか/とらないかのフラグ領域 */
+    tmp_code_length += 1;
+
     /* LPC係数領域 */
     {
         uint32_t coef_code_length = 0, summed_coef_code_length;
@@ -1109,16 +1114,14 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     return SRLA_ERROR_OK;
 }
 
-/* 圧縮データブロックエンコード */
-static SRLAApiResult SRLAEncoder_EncodeCompressData(
-        struct SRLAEncoder *encoder,
-        const int32_t *const *input, uint32_t num_samples,
-        uint8_t *data, uint32_t data_size, uint32_t *output_size)
+/* 圧縮データブロックの係数計算 */
+static SRLAApiResult SRLAEncoder_ComputeCoefficients(
+    struct SRLAEncoder *encoder, const int32_t *const *input, uint32_t num_samples,
+    SRLAChannelProcessMethod *ch_process_method, uint32_t *output_bits)
 {
-    uint32_t ch;
-    struct BitStream writer;
+    uint32_t ch, tmp_output_bits = 0;
     const struct SRLAHeader *header;
-    SRLAChannelProcessMethod ch_process_method = SRLA_CH_PROCESS_METHOD_INVALID;
+    SRLAChannelProcessMethod tmp_ch_process_method = SRLA_CH_PROCESS_METHOD_INVALID;
     uint32_t code_length[SRLA_MAX_NUM_CHANNELS] = { 0, };
     uint32_t ms_code_length[2] = { 0, };
 
@@ -1126,9 +1129,8 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     SRLA_ASSERT(encoder != NULL);
     SRLA_ASSERT(input != NULL);
     SRLA_ASSERT(num_samples > 0);
-    SRLA_ASSERT(data != NULL);
-    SRLA_ASSERT(data_size > 0);
-    SRLA_ASSERT(output_size != NULL);
+    SRLA_ASSERT(ch_process_method != NULL);
+    SRLA_ASSERT(output_bits != NULL);
 
     /* ヘッダ取得 */
     header = &(encoder->header);
@@ -1173,7 +1175,8 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     /* マルチチャンネルで最小の符号長を選択 */
     if (header->num_channels == 1) {
         /* モノラルでは何もしない */
-        ch_process_method = SRLA_CH_PROCESS_METHOD_NONE;
+        tmp_ch_process_method = SRLA_CH_PROCESS_METHOD_NONE;
+        tmp_output_bits = code_length[0];
     } else if (header->num_channels >= 2) {
         SRLAChannelProcessMethod argmin;
         uint32_t len[4], min;
@@ -1192,10 +1195,13 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
                 argmin = (SRLAChannelProcessMethod)ch;
             }
         }
-        ch_process_method = argmin;
+
+        /* 結果を記録 */
+        tmp_ch_process_method = argmin;
+        tmp_output_bits = min;
 
         /* 判定結果に応じてLRの結果を差し替える */
-        if (ch_process_method == SRLA_CH_PROCESS_METHOD_MS) {
+        if (tmp_ch_process_method == SRLA_CH_PROCESS_METHOD_MS) {
             int32_t *tmpp;
             for (ch = 0; ch < 2; ch++) {
                 memcpy(encoder->pre_emphasis[ch], encoder->ms_pre_emphasis[ch],
@@ -1209,10 +1215,10 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
                 encoder->residual[ch] = encoder->ms_residual[ch];
                 encoder->ms_residual[ch] = tmpp;
             }
-        } else if ((ch_process_method == SRLA_CH_PROCESS_METHOD_LS) || (ch_process_method == SRLA_CH_PROCESS_METHOD_SR)) {
+        } else if ((tmp_ch_process_method == SRLA_CH_PROCESS_METHOD_LS) || (tmp_ch_process_method == SRLA_CH_PROCESS_METHOD_SR)) {
             int32_t *tmpp;
             const uint32_t src_ch = 1; /* S */
-            const uint32_t dst_ch = (ch_process_method == SRLA_CH_PROCESS_METHOD_LS) ? 1 : 0;
+            const uint32_t dst_ch = (tmp_ch_process_method == SRLA_CH_PROCESS_METHOD_LS) ? 1 : 0;
             memcpy(encoder->pre_emphasis[dst_ch], encoder->ms_pre_emphasis[src_ch],
                 sizeof(struct SRLAPreemphasisFilter) * SRLA_NUM_PREEMPHASIS_FILTERS);
             encoder->coef_order[dst_ch] = encoder->ms_coef_order[src_ch];
@@ -1224,6 +1230,47 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
             encoder->residual[dst_ch] = encoder->ms_residual[src_ch];
             encoder->ms_residual[src_ch] = tmpp;
         }
+    }
+
+    /* マルチチャンネル処理法のサイズを加える */
+    tmp_output_bits += 2;
+
+    /* バイト境界に切り上げ */
+    tmp_output_bits = SRLAUTILITY_ROUNDUP(tmp_output_bits, 8);
+
+    /* 結果出力 */
+    (*ch_process_method) = tmp_ch_process_method;
+    (*output_bits) = tmp_output_bits;
+
+    return SRLA_APIRESULT_OK;
+}
+
+/* 圧縮データブロックエンコード */
+static SRLAApiResult SRLAEncoder_EncodeCompressData(
+        struct SRLAEncoder *encoder,
+        const int32_t *const *input, uint32_t num_samples,
+        uint8_t *data, uint32_t data_size, uint32_t *output_size)
+{
+    uint32_t ch, tmp_code_length;
+    struct BitStream writer;
+    const struct SRLAHeader *header;
+    SRLAChannelProcessMethod ch_process_method = SRLA_CH_PROCESS_METHOD_INVALID;
+
+    /* 内部関数なので不正な引数はアサートで落とす */
+    SRLA_ASSERT(encoder != NULL);
+    SRLA_ASSERT(input != NULL);
+    SRLA_ASSERT(num_samples > 0);
+    SRLA_ASSERT(data != NULL);
+    SRLA_ASSERT(data_size > 0);
+    SRLA_ASSERT(output_size != NULL);
+
+    /* ヘッダ取得 */
+    header = &(encoder->header);
+
+    /* 係数計算 */
+    if (SRLAEncoder_ComputeCoefficients(encoder,
+        input, num_samples, &ch_process_method, &tmp_code_length) != SRLA_APIRESULT_OK) {
+        return SRLA_APIRESULT_NG;
     }
 
     /* ビットライタ作成 */
@@ -1314,6 +1361,78 @@ static SRLAApiResult SRLAEncoder_EncodeSilentData(
 
     /* データサイズなし */
     (*output_size) = 0;
+    return SRLA_APIRESULT_OK;
+}
+
+/* 単一データブロックサイズ計算 */
+SRLAApiResult SRLAEncoder_ComputeBlockSize(
+    struct SRLAEncoder *encoder, const int32_t *const *input, uint32_t num_samples,
+    uint32_t *output_size)
+{
+    uint8_t *data_ptr;
+    const struct SRLAHeader *header;
+    SRLABlockDataType block_type;
+    uint32_t tmp_block_size;
+
+    /* 引数チェック */
+    if ((encoder == NULL) || (input == NULL) || (num_samples == 0)
+        || (output_size == NULL)) {
+        return SRLA_APIRESULT_INVALID_ARGUMENT;
+    }
+    header = &(encoder->header);
+
+    /* パラメータがセットされてない */
+    if (encoder->set_parameter != 1) {
+        return SRLA_APIRESULT_PARAMETER_NOT_SET;
+    }
+
+    /* エンコードサンプル数チェック */
+    if (num_samples > header->max_num_samples_per_block) {
+        return SRLA_APIRESULT_INSUFFICIENT_BUFFER;
+    }
+
+    /* 圧縮手法の判定 */
+    block_type = SRLAEncoder_DecideBlockDataType(encoder, input, num_samples);
+    SRLA_ASSERT(block_type != SRLA_BLOCK_DATA_TYPE_INVALID);
+
+COMPUTE_BLOCK_SIZE_START:
+    /* ブロックヘッダサイズ */
+    tmp_block_size = 11;
+
+    switch (block_type) {
+    case SRLA_BLOCK_DATA_TYPE_RAWDATA:
+        tmp_block_size += (header->bits_per_sample * num_samples * header->num_channels) / 8;
+        break;
+    case SRLA_BLOCK_DATA_TYPE_COMPRESSDATA:
+    {
+        SRLAApiResult ret;
+        uint32_t compress_data_size;
+        SRLAChannelProcessMethod dummy;
+        /* 符号長計算 */
+        if ((ret = SRLAEncoder_ComputeCoefficients(
+            encoder, input, num_samples, &dummy, &compress_data_size)) != SRLA_APIRESULT_OK) {
+            return ret;
+        }
+        SRLA_ASSERT(compress_data_size % 8 == 0);
+        /* エンコードの結果データが増加したら生データブロックに切り替え */
+        if (compress_data_size >= (header->bits_per_sample * num_samples * header->num_channels)) {
+            block_type = SRLA_BLOCK_DATA_TYPE_RAWDATA;
+            goto COMPUTE_BLOCK_SIZE_START;
+        }
+        /* バイト単位に変換して加算 */
+        tmp_block_size += compress_data_size / 8;
+    }
+        break;
+    case SRLA_BLOCK_DATA_TYPE_SILENT:
+        /* 0バイト */
+        break;
+    default:
+        SRLA_ASSERT(0);
+    }
+
+    /* 結果出力 */
+    (*output_size) = tmp_block_size;
+
     return SRLA_APIRESULT_OK;
 }
 
@@ -1437,8 +1556,8 @@ SRLAApiResult SRLAEncoder_EncodeOptimalPartitionedBlock(
 
     /* 最適なブロック分割の探索 */
     if (SRLAEncoder_SearchOptimalBlockPartitions(
-            encoder, input, num_samples, data, data_size,
-            encoder->min_num_samples_per_block, &num_partitions, encoder->partitions_buffer) != SRLA_ERROR_OK) {
+        encoder, input, num_samples, encoder->min_num_samples_per_block,
+        &num_partitions, encoder->partitions_buffer) != SRLA_ERROR_OK) {
         return SRLA_APIRESULT_NG;
     }
 

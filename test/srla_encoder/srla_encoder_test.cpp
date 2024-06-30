@@ -372,7 +372,7 @@ TEST(SRLAEncoderTest, EncodeBlockTest)
         struct BitStream stream;
         int32_t *input[SRLA_MAX_NUM_CHANNELS];
         uint8_t *data;
-        uint32_t ch, sufficient_size, output_size, num_samples;
+        uint32_t ch, sufficient_size, output_size, computed_block_size, num_samples;
         uint32_t bitbuf;
 
         SRLAEncoder_SetValidEncodeParameter(&parameter);
@@ -404,8 +404,17 @@ TEST(SRLAEncoderTest, EncodeBlockTest)
                 SRLAEncoder_EncodeBlock(encoder, input, parameter.max_num_samples_per_block,
                     data, sufficient_size, &output_size));
 
+        /* ブロックサイズ計算 */
+        EXPECT_EQ(
+            SRLA_APIRESULT_OK,
+            SRLAEncoder_ComputeBlockSize(encoder,
+                input, parameter.max_num_samples_per_block, &computed_block_size));
+
         /* ブロック先頭の同期コードがあるので2バイトよりは大きいはず */
         EXPECT_TRUE(output_size > 2);
+
+        /* 計算したブロックサイズと等しい */
+        EXPECT_EQ(output_size, computed_block_size);
 
         /* 内容の確認 */
         BitReader_Open(&stream, data, output_size);
@@ -417,6 +426,163 @@ TEST(SRLAEncoderTest, EncodeBlockTest)
         EXPECT_TRUE((bitbuf == SRLA_BLOCK_DATA_TYPE_COMPRESSDATA)
                 || (bitbuf == SRLA_BLOCK_DATA_TYPE_SILENT)
                 || (bitbuf == SRLA_BLOCK_DATA_TYPE_RAWDATA));
+        /* この後データがエンコードされているので、まだ終端ではないはず */
+        BitStream_Tell(&stream, (int32_t *)&bitbuf);
+        EXPECT_TRUE(bitbuf < output_size);
+        BitStream_Close(&stream);
+
+        /* 領域の開放 */
+        for (ch = 0; ch < parameter.num_channels; ch++) {
+            free(input[ch]);
+        }
+        free(data);
+        SRLAEncoder_Destroy(encoder);
+    }
+
+    /* 簡易な波形エンコード（線形上昇） */
+    {
+        struct SRLAEncoder *encoder;
+        struct SRLAEncoderConfig config;
+        struct SRLAEncodeParameter parameter;
+        struct BitStream stream;
+        int32_t *input[SRLA_MAX_NUM_CHANNELS];
+        uint8_t *data;
+        uint32_t ch, sufficient_size, output_size, computed_block_size, num_samples;
+        uint32_t bitbuf;
+
+        SRLAEncoder_SetValidEncodeParameter(&parameter);
+        SRLAEncoder_SetValidConfig(&config);
+
+        /* 十分なデータサイズ */
+        sufficient_size = (2 * parameter.num_channels * parameter.max_num_samples_per_block * parameter.bits_per_sample) / 8;
+
+        /* データ領域確保 */
+        data = (uint8_t *)malloc(sufficient_size);
+        for (ch = 0; ch < parameter.num_channels; ch++) {
+            uint32_t smpl;
+            input[ch] = (int32_t *)malloc(sizeof(int32_t) * parameter.max_num_samples_per_block);
+            /* 線形上昇データ */
+            for (smpl = 0; smpl < parameter.max_num_samples_per_block; smpl++) {
+                input[ch][smpl] = (int32_t)smpl;
+            }
+        }
+
+        /* エンコーダ作成 */
+        encoder = SRLAEncoder_Create(&config, NULL, 0);
+        ASSERT_TRUE(encoder != NULL);
+
+        /* パラメータ設定 */
+        EXPECT_EQ(
+            SRLA_APIRESULT_OK,
+            SRLAEncoder_SetEncodeParameter(encoder, &parameter));
+
+        /* 1ブロックエンコード */
+        EXPECT_EQ(
+            SRLA_APIRESULT_OK,
+            SRLAEncoder_EncodeBlock(encoder, input, parameter.max_num_samples_per_block,
+                data, sufficient_size, &output_size));
+
+        /* ブロックサイズ計算 */
+        EXPECT_EQ(
+            SRLA_APIRESULT_OK,
+            SRLAEncoder_ComputeBlockSize(encoder,
+                input, parameter.max_num_samples_per_block, &computed_block_size));
+
+        /* ブロック先頭の同期コードがあるので2バイトよりは大きいはず */
+        EXPECT_TRUE(output_size > 2);
+
+        /* 計算したブロックサイズと等しい */
+        EXPECT_EQ(output_size, computed_block_size);
+
+        /* 内容の確認 */
+        BitReader_Open(&stream, data, output_size);
+        /* 同期コード */
+        BitReader_GetBits(&stream, &bitbuf, 16);
+        EXPECT_EQ(SRLA_BLOCK_SYNC_CODE, bitbuf);
+        /* ブロックデータタイプ */
+        BitReader_GetBits(&stream, &bitbuf, 2);
+        EXPECT_TRUE((bitbuf == SRLA_BLOCK_DATA_TYPE_COMPRESSDATA)
+            || (bitbuf == SRLA_BLOCK_DATA_TYPE_SILENT)
+            || (bitbuf == SRLA_BLOCK_DATA_TYPE_RAWDATA));
+        /* この後データがエンコードされているので、まだ終端ではないはず */
+        BitStream_Tell(&stream, (int32_t *)&bitbuf);
+        EXPECT_TRUE(bitbuf < output_size);
+        BitStream_Close(&stream);
+
+        /* 領域の開放 */
+        for (ch = 0; ch < parameter.num_channels; ch++) {
+            free(input[ch]);
+        }
+        free(data);
+        SRLAEncoder_Destroy(encoder);
+    }
+
+    /* 簡易な波形エンコード（乱数） */
+    {
+        struct SRLAEncoder *encoder;
+        struct SRLAEncoderConfig config;
+        struct SRLAEncodeParameter parameter;
+        struct BitStream stream;
+        int32_t *input[SRLA_MAX_NUM_CHANNELS];
+        uint8_t *data;
+        uint32_t ch, sufficient_size, output_size, computed_block_size, num_samples;
+        uint32_t bitbuf;
+
+        SRLAEncoder_SetValidEncodeParameter(&parameter);
+        SRLAEncoder_SetValidConfig(&config);
+
+        /* 十分なデータサイズ */
+        sufficient_size = (2 * parameter.num_channels * parameter.max_num_samples_per_block * parameter.bits_per_sample) / 8;
+
+        /* データ領域確保 */
+        data = (uint8_t *)malloc(sufficient_size);
+        srand(0);
+        for (ch = 0; ch < parameter.num_channels; ch++) {
+            uint32_t smpl;
+            input[ch] = (int32_t *)malloc(sizeof(int32_t) * parameter.max_num_samples_per_block);
+            /* 乱数データ */
+            for (smpl = 0; smpl < parameter.max_num_samples_per_block; smpl++) {
+                input[ch][smpl] = rand();
+            }
+        }
+
+        /* エンコーダ作成 */
+        encoder = SRLAEncoder_Create(&config, NULL, 0);
+        ASSERT_TRUE(encoder != NULL);
+
+        /* パラメータ設定 */
+        EXPECT_EQ(
+            SRLA_APIRESULT_OK,
+            SRLAEncoder_SetEncodeParameter(encoder, &parameter));
+
+        /* 1ブロックエンコード */
+        EXPECT_EQ(
+            SRLA_APIRESULT_OK,
+            SRLAEncoder_EncodeBlock(encoder, input, parameter.max_num_samples_per_block,
+                data, sufficient_size, &output_size));
+
+        /* ブロックサイズ計算 */
+        EXPECT_EQ(
+            SRLA_APIRESULT_OK,
+            SRLAEncoder_ComputeBlockSize(encoder,
+                input, parameter.max_num_samples_per_block, &computed_block_size));
+
+        /* ブロック先頭の同期コードがあるので2バイトよりは大きいはず */
+        EXPECT_TRUE(output_size > 2);
+
+        /* 計算したブロックサイズと等しい */
+        EXPECT_EQ(output_size, computed_block_size);
+
+        /* 内容の確認 */
+        BitReader_Open(&stream, data, output_size);
+        /* 同期コード */
+        BitReader_GetBits(&stream, &bitbuf, 16);
+        EXPECT_EQ(SRLA_BLOCK_SYNC_CODE, bitbuf);
+        /* ブロックデータタイプ */
+        BitReader_GetBits(&stream, &bitbuf, 2);
+        EXPECT_TRUE((bitbuf == SRLA_BLOCK_DATA_TYPE_COMPRESSDATA)
+            || (bitbuf == SRLA_BLOCK_DATA_TYPE_SILENT)
+            || (bitbuf == SRLA_BLOCK_DATA_TYPE_RAWDATA));
         /* この後データがエンコードされているので、まだ終端ではないはず */
         BitStream_Tell(&stream, (int32_t *)&bitbuf);
         EXPECT_TRUE(bitbuf < output_size);

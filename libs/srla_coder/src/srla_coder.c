@@ -522,6 +522,9 @@ static void SRLACoder_SearchBestCodeAndPartition(
 
     SRLA_ASSERT(best_porder != (max_porder + 1));
 
+    /* 符号タイプと分割数の領域を加算 */
+    min_bits += 1 + SRLACODER_LOG2_MAX_NUM_PARTITIONS;
+
     /* 結果を記録 */
     (*code_type) = tmp_code_type;
     (*best_partition_order) = best_porder;

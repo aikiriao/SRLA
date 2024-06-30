@@ -46,6 +46,11 @@ void SRLAEncoder_Destroy(struct SRLAEncoder *encoder);
 SRLAApiResult SRLAEncoder_SetEncodeParameter(
     struct SRLAEncoder *encoder, const struct SRLAEncodeParameter *parameter);
 
+/* 単一データブロックサイズ計算 */
+SRLAApiResult SRLAEncoder_ComputeBlockSize(
+    struct SRLAEncoder *encoder, const int32_t *const *input, uint32_t num_samples,
+    uint32_t *output_size);
+
 /* 単一データブロックエンコード */
 SRLAApiResult SRLAEncoder_EncodeBlock(
         struct SRLAEncoder *encoder,
