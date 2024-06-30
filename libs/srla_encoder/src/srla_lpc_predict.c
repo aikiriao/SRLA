@@ -67,7 +67,7 @@ void SRLALPC_Predict(
                 vdata = _mm_loadu_si128(&data[smpl - coef_order + ord]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
             }
-            _mm_store_si128(&predict, vpred);
+            _mm_store_si128(predict, vpred);
 
             /* ord = coef_order - 3 */
             /* data[smpl + 0] .. data[smpl + 2]に依存関係があるため処理
@@ -170,7 +170,7 @@ void SRLALPC_Predict(
                 vdata = _mm256_loadu_si256(&data[smpl - coef_order + ord]);
                 vpred = _mm256_add_epi32(vpred, _mm256_mullo_epi32(vcoef[ord], vdata));
             }
-            _mm256_store_si256(&predict, vpred);
+            _mm256_store_si256(predict, vpred);
 
             /* ord = coef_order - 7 */
             for (i = 0; i < 8; i++) {
@@ -211,7 +211,7 @@ void SRLALPC_Predict(
                 vdata = _mm_loadu_si128(&data[smpl - coef_order + ord]);
                 vpred = _mm_add_epi32(vpred, _mm_mullo_epi32(vcoef[ord], vdata));
             }
-            _mm_store_si128(&predict, vpred);
+            _mm_store_si128(predict, vpred);
 
             /* ord = coef_order - 3 */
             for (i = 0; i < 4; i++) {
