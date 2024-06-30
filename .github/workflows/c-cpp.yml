@@ -57,8 +57,7 @@ jobs:
         cmake --build build --config Release
         popd
 
-    - name: Build SSE/AVX libraries and tools on Windows
-      if: runner.os == 'Windows'
+    - name: Build SSE/AVX libraries and tools
       run: |
         cmake -B build_release_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41
         cmake --build build_release_sse41 --config Release
