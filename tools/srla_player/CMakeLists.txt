@@ -42,6 +42,8 @@ endif()
 # コンパイルオプション
 if(MSVC)
     target_compile_options(${APP_NAME} PRIVATE /W4)
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Oi /Ot /Oy /GL")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
 else()
     target_compile_options(${APP_NAME} PRIVATE -Wall -Wextra -Wpedantic -Wformat=2 -Wstrict-aliasing=2 -Wconversion -Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition)
     set(CMAKE_C_FLAGS_DEBUG "-O0 -g3 -DDEBUG")
