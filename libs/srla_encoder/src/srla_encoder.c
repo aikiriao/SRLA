@@ -872,6 +872,20 @@ static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint
     return (1.0 + k1) * (1.0 - k1factor) + (1.0 + k2 + (1.0 / (1.0 - k2factor))) * k1factor;
 }
 
+/* 幾何分布のエントロピーを計算 */
+static double SRLAEncoder_CalculateGeometricDistributionEntropy(double mean_abs_error, uint32_t bps)
+{
+    const double intmean = mean_abs_error * (1 << (bps - 1)); /* 整数量子化した時の平均値 */
+    const double rho = 1.0 / (1.0 + intmean);
+    const double invrho = 1.0 - rho;
+
+    if (mean_abs_error < FLT_MIN) {
+        return 0.0;
+    }
+
+    return -(invrho * SRLAUtility_Log2(invrho) + rho * SRLAUtility_Log2(rho)) / rho;
+}
+
 /* 最適なLPC次数の選択 */
 static SRLAError SRLAEncoder_SelectBestLPCOrder(
     const struct SRLAHeader *header, SRLAChannelLPCOrderDecisionTactics tactics,
@@ -933,7 +947,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
             /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
             mabse = 2.0 * sqrt(err_var / 2.0); /* 符号化で非負整数化するため2倍 */
             /* 残差符号のサイズ */
-            len = SRLAEncoder_CalculateRGRMeanCodeLength(mabse, header->bits_per_sample) * num_samples;
+            len = SRLAEncoder_CalculateGeometricDistributionEntropy(mabse, header->bits_per_sample) * num_samples;
             /* 係数のサイズ */
             len += SRLA_LPC_COEFFICIENT_BITWIDTH * order;
             if (minlen > len) {
