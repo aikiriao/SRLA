@@ -472,7 +472,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
                 } else {
                     const int32_t diff = (int32_t)k - (int32_t)prevk;
                     const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
-                    bits += SRLACODER_GAMMA_BITS(udiff);
+                    bits += udiff + 1;
                 }
                 prevk = k;
                 /* 途中で最小値を超えていたら終わり */
@@ -501,7 +501,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
                 } else {
                     const int32_t diff = (int32_t)k2 - (int32_t)prevk2;
                     const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
-                    bits += SRLACODER_GAMMA_BITS(udiff);
+                    bits += udiff + 1;
                 }
                 prevk2 = k2;
                 /* 途中で最小値を超えていたら終わり */
@@ -605,7 +605,8 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                     BitWriter_PutBits(stream, k, SRLACODER_RICE_PARAMETER_BITS);
                 } else {
                     const int32_t diff = (int32_t)k - (int32_t)prevk;
-                    Gamma_PutCode(stream, SRLAUTILITY_SINT32_TO_UINT32(diff));
+                    const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
+                    BitWriter_PutZeroRun(stream, udiff);
                 }
                 prevk = k;
                 for (smpl = 0; smpl < nsmpl; smpl++) {
@@ -623,7 +624,8 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
                     BitWriter_PutBits(stream, k2, SRLACODER_RICE_PARAMETER_BITS);
                 } else {
                     const int32_t diff = (int32_t)k2 - (int32_t)prevk2;
-                    Gamma_PutCode(stream, SRLAUTILITY_SINT32_TO_UINT32(diff));
+                    const uint32_t udiff = SRLAUTILITY_SINT32_TO_UINT32(diff);
+                    BitWriter_PutZeroRun(stream, udiff);
                 }
                 prevk2 = k2;
                 SRLACoder_EncodeRecursiveRice(stream, &coder->uval_buffer[part * nsmpl], nsmpl, k1, k2);
@@ -703,7 +705,8 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
             if (part == 0) {
                 BitReader_GetBits(stream, &k, SRLACODER_RICE_PARAMETER_BITS);
             } else {
-                const uint32_t udiff = Gamma_GetCode(stream);
+                uint32_t udiff;
+                BitReader_GetZeroRunLength(stream, &udiff);
                 k = (uint32_t)((int32_t)k + SRLAUTILITY_UINT32_TO_SINT32(udiff));
             }
             for (smpl = 0; smpl < nsmpl; smpl++) {
@@ -720,7 +723,8 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
             if (part == 0) {
                 BitReader_GetBits(stream, &k2, SRLACODER_RICE_PARAMETER_BITS);
             } else {
-                const uint32_t udiff = Gamma_GetCode(stream);
+                uint32_t udiff;
+                BitReader_GetZeroRunLength(stream, &udiff);
                 k2 = (uint32_t)((int32_t)k2 + SRLAUTILITY_UINT32_TO_SINT32(udiff));
             }
             SRLACoder_DecodeRecursiveRice(stream, &data[part * nsmpl], nsmpl, k2 + 1, k2);
