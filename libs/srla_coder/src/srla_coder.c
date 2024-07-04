@@ -544,7 +544,7 @@ static void SRLACoder_EncodeRecursiveRice(
     case (k2_param):\
         {\
             while ((num_samples)--) {\
-                uint32_t uval__ = (*((data)++));\
+                const uint32_t uval__ = (*((data)++));\
                 RecursiveRice_PutCode((stream), ((k2_param)+1), (k2_param), uval__);\
             }\
         }\
