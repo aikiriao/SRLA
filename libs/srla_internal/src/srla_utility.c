@@ -181,44 +181,87 @@ void SRLAPreemphasisFilter_Initialize(struct SRLAPreemphasisFilter *preem)
     preem->coef = 0;
 }
 
-/* プリエンファシスフィルタ係数計算 */
-void SRLAPreemphasisFilter_CalculateCoefficient(
-        struct SRLAPreemphasisFilter *preem, const int32_t *buffer, uint32_t num_samples)
+/* 多段プリエンファシスの係数計算 */
+void SRLAPreemphasisFilter_CalculateMultiStageCoefficients(
+    struct SRLAPreemphasisFilter *preem, uint32_t num_preem, const int32_t *buffer, uint32_t num_samples)
 {
-    uint32_t smpl;
-    int32_t coef;
-    double corr[2] = { 0.0, 0.0 };
-    double curr;
+    uint32_t i;
+    double r0, r1, r2;
+    double curr, succ;
+    double double_coef[SRLA_NUM_PREEMPHASIS_FILTERS];
+
+    /* 注意）現段階では2回を前提 */
+    SRLA_STATIC_ASSERT(SRLA_NUM_PREEMPHASIS_FILTERS == 2);
+    SRLA_ASSERT(num_preem == 2);
 
     SRLA_ASSERT(preem != NULL);
     SRLA_ASSERT(buffer != NULL);
 
     /* 相関の計算 */
     curr = buffer[0];
-    for (smpl = 0; smpl < num_samples - 1; smpl++) {
-        const double succ = buffer[smpl + 1];
-        corr[0] += curr * curr;
-        corr[1] += curr * succ;
+    succ = buffer[1];
+    r0 = r1 = r2 = 0.0;
+    for (i = 0; i < num_samples - 2; i++) {
+        const double succsucc = buffer[i + 2];
+        r0 += curr * curr;
+        r1 += curr * succ;
+        r2 += curr * succsucc;
         curr = succ;
+        succ = succsucc;
     }
-    corr[0] += curr * curr;
-    SRLA_ASSERT(corr[0] >= corr[1]);
-    /* 分散(=0次相関)で正規化 */
-    corr[1] /= corr[0];
+    /* i = num_samples - 1 */
+    r0 += curr * curr;
+    r1 += curr * succ;
+    curr = succ;
+    r0 += curr * curr;
+    SRLA_ASSERT((r0 >= r1) && (r0 >= r2));
 
-    /* 固定小数化 */
-    if ((corr[0] < 1e-6) || (corr[1] < 0.0)) {
-        /* 1次相関が負の場合は振動しているためプリエンファシスの効果は薄い */
-        coef = 0;
-    } else {
-        coef = (int32_t)SRLAUtility_Round(corr[1] * pow(2.0f, SRLA_PREEMPHASIS_COEF_SHIFT));
-        /* 丸め込み */
-        if (coef >= (1 << (SRLA_PREEMPHASIS_COEF_SHIFT - 1))) {
-            coef = (1 << (SRLA_PREEMPHASIS_COEF_SHIFT - 1)) - 1;
+    /* 分散が小さい場合は全て0を設定 */
+    if (r0 < 1e-6) {
+        for (i = 0; i < SRLA_NUM_PREEMPHASIS_FILTERS; i++) {
+            preem[i].coef = 0;
+        }
+        return;
+    }
+
+    /* 分散(=0次相関)で正規化 */
+    r1 /= r0;
+    r2 /= r0;
+    r0 = 1.0;
+
+    /* プリエンファシスの係数計算 */
+    {
+        /* 平方根の2乗 */
+        const double sqroot = r1 * r1 * (r0 - r2) * (r0 - r2) - 4.0 * (r0 * r0 - r1 * r1) * (r1 * r1 - r0 * r2);
+        if (sqroot >= 0.0) {
+            double det;
+            double tmpcoef[2] = { 0.0, 0.0 };
+            tmpcoef[1] = (r1 * (r0 - r2) - sqrt(sqroot)) / (2.0 * (r0 * r0 - r1 * r1));
+            tmpcoef[0] = (tmpcoef[1] * r1 - r2) / (tmpcoef[1] * r0 - r1);
+            /* ヘッセ行列の行列式 */
+            det = 4.0 * (tmpcoef[0] * tmpcoef[0] * r0 - 2.0 * tmpcoef[0] * r1 + r0) * (tmpcoef[1] * tmpcoef[1] * r0 - 2.0 * tmpcoef[1] * r1 + r0);
+            det -= 4.0 * pow(2.0 * tmpcoef[0] * tmpcoef[1] * r0 - 2.0 * tmpcoef[0] * r1 - 2.0 * tmpcoef[1] * r1 + r0 + r2, 2.0);
+            if (det > 0.0) {
+                double_coef[0] = tmpcoef[0];
+                double_coef[1] = tmpcoef[1];
+            } else {
+                double_coef[0] = r1;
+                double_coef[1] = r1 * (r1 * r1 - r2) / (1.0 - r1 * r1);
+            }
+        } else {
+            /* 複素数解の場合は従来通りの係数（1段ごとに分散最小）を設定 */
+            double_coef[0] = r1;
+            double_coef[1] = r1 * (r1 * r1 - r2) / (1.0 - r1 * r1);
         }
     }
 
-    preem->coef = coef;
+    /* 固定小数化 */
+    for (i = 0; i < SRLA_NUM_PREEMPHASIS_FILTERS; i++) {
+        int32_t coef = (int32_t)SRLAUtility_Round(double_coef[i] * pow(2.0f, SRLA_PREEMPHASIS_COEF_SHIFT));
+        /* 丸め込み */
+        coef = SRLAUTILITY_INNER_VALUE(coef, -(1 << SRLA_PREEMPHASIS_COEF_SHIFT), (1 << SRLA_PREEMPHASIS_COEF_SHIFT) - 1);
+        preem[i].coef = coef;
+    }
 }
 
 /* プリエンファシス */

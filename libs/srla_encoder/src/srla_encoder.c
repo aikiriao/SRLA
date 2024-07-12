@@ -997,13 +997,13 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     /* プリエンファシスフィルタ群 */
     {
         const int32_t head = buffer_int[0];
+        struct SRLAPreemphasisFilter filter[SRLA_NUM_PREEMPHASIS_FILTERS] = { 0, };
+        SRLAPreemphasisFilter_CalculateMultiStageCoefficients(filter, SRLA_NUM_PREEMPHASIS_FILTERS, buffer_int, num_samples);
         for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
-            struct SRLAPreemphasisFilter filter = { 0, };
-            filter.prev = head;
-            SRLAPreemphasisFilter_CalculateCoefficient(&filter, buffer_int, num_samples);
-            SRLAPreemphasisFilter_Preemphasis(&filter, buffer_int, num_samples);
+            filter[p].prev = head;
+            SRLAPreemphasisFilter_Preemphasis(&filter[p], buffer_int, num_samples);
             tmp_pre_emphasis_filters[p].prev = head;
-            tmp_pre_emphasis_filters[p].coef = filter.coef;
+            tmp_pre_emphasis_filters[p].coef = filter[p].coef;
         }
     }
 
@@ -1070,7 +1070,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     /* プリエンファシスフィルタのバッファ/係数 */
     tmp_code_length += header->bits_per_sample + 1;
     for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
-        tmp_code_length += SRLA_PREEMPHASIS_COEF_SHIFT - 1;
+        tmp_code_length += SRLA_PREEMPHASIS_COEF_SHIFT + 1;
     }
 
     /* LPC係数次数/LPC係数右シフト量 */
@@ -1300,11 +1300,9 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         SRLA_ASSERT(uval < (1U << (header->bits_per_sample + 1)));
         BitWriter_PutBits(&writer, uval, header->bits_per_sample + 1);
         for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
-            /* プリエンファシス係数は正値に制限しているため1bitケチれる */
-            SRLA_ASSERT(encoder->pre_emphasis[ch][p].coef >= 0);
-            uval = (uint32_t)encoder->pre_emphasis[ch][p].coef;
-            SRLA_ASSERT(uval < (1U << (SRLA_PREEMPHASIS_COEF_SHIFT - 1)));
-            BitWriter_PutBits(&writer, uval, SRLA_PREEMPHASIS_COEF_SHIFT - 1);
+            uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->pre_emphasis[ch][p].coef);
+            SRLA_ASSERT(uval < (1U << (SRLA_PREEMPHASIS_COEF_SHIFT + 1)));
+            BitWriter_PutBits(&writer, uval, SRLA_PREEMPHASIS_COEF_SHIFT + 1);
         }
     }
     /* LPC係数次数/LPC係数右シフト量/LPC係数 */

@@ -129,13 +129,13 @@ void SRLAUtility_SRtoLRConversion(int32_t **buffer, uint32_t num_samples);
 /* プリエンファシスフィルタ初期化 */
 void SRLAPreemphasisFilter_Initialize(struct SRLAPreemphasisFilter *preem);
 
-/* プリエンファシスフィルタ係数計算 */
-void SRLAPreemphasisFilter_CalculateCoefficient(
-        struct SRLAPreemphasisFilter *preem, const int32_t *buffer, uint32_t num_samples);
+/* 多段プリエンファシスの係数計算 */
+void SRLAPreemphasisFilter_CalculateMultiStageCoefficients(
+    struct SRLAPreemphasisFilter *preem, uint32_t num_preem, const int32_t *buffer, uint32_t num_samples);
 
 /* プリエンファシス */
 void SRLAPreemphasisFilter_Preemphasis(
-        struct SRLAPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
+    struct SRLAPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
 
 /* デエンファシスを複数回適用 */
 void SRLAPreemphasisFilter_MultiStageDeemphasis(

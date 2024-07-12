@@ -12,7 +12,7 @@
 
 /* 内部エンコードパラメータ */
 /* プリエンファシスの係数シフト量 */
-#define SRLA_PREEMPHASIS_COEF_SHIFT 5
+#define SRLA_PREEMPHASIS_COEF_SHIFT 4
 /* プリエンファシスフィルタの適用回数 */
 #define SRLA_NUM_PREEMPHASIS_FILTERS 2
 /* LPC係数のビット幅 */

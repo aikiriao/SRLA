@@ -454,9 +454,8 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         }
         /* プリエンファシス係数 */
         for (l = 0; l < SRLA_NUM_PREEMPHASIS_FILTERS; l++) {
-            /* プリエンファシス係数は正値に制限しているため1bitケチれる */
-            BitReader_GetBits(&reader, &uval, SRLA_PREEMPHASIS_COEF_SHIFT - 1);
-            decoder->de_emphasis[ch][l].coef = (int32_t)uval;
+            BitReader_GetBits(&reader, &uval, SRLA_PREEMPHASIS_COEF_SHIFT + 1);
+            decoder->de_emphasis[ch][l].coef = SRLAUTILITY_UINT32_TO_SINT32(uval);
         }
     }
     /* LPC係数次数/LPC係数右シフト量/LPC係数 */
