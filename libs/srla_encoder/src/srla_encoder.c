@@ -939,9 +939,13 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
         uint32_t order, tmp_best_order = 0;
         double len, mabse, minlen = FLT_MAX;
 
+        /* 次数あたり係数量子化誤差分散 */
+        const double qerr_var_unit = pow(2.0, -2.0 * SRLA_LPC_COEFFICIENT_BITWIDTH) * error_vars[0] / 12.0;
         for (order = 1; order <= max_coef_order; order++) {
+            /* 係数量子化誤差分散を加えた誤差分散 */
+            const double err_var = error_vars[order] + order * qerr_var_unit;
             /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
-            mabse = 2.0 * sqrt(error_vars[order] / 2.0); /* 符号化で非負整数化するため2倍 */
+            mabse = 2.0 * sqrt(err_var / 2.0); /* 符号化で非負整数化するため2倍 */
             /* 残差符号のサイズ */
             len = SRLAEncoder_CalculateGeometricDistributionEntropy(mabse, header->bits_per_sample) * num_samples;
             /* 係数のサイズ */
