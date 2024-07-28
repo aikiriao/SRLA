@@ -87,8 +87,45 @@ jobs:
         cmake --build build_avx2 --config Release
         popd
 
-    - name: Create artifacts on UNIX platform
-      if: runner.os == 'Linux' || runner.os == 'macOS'
+    - name: Create artifacts on Linux platform
+      if: runner.os == 'Linux'
+      run: |
+        ARTIFACT_ROOT=srla_${{ matrix.os }}
+        mkdir ${ARTIFACT_ROOT} 
+        pushd ${ARTIFACT_ROOT}
+        mkdir include && mkdir libs && mkdir tools
+        popd
+        cp include/*.h ${ARTIFACT_ROOT}/include/
+        cp build_release/libsrlacodec.a ${ARTIFACT_ROOT}/libs/
+        cp build_release/libsrladec.a ${ARTIFACT_ROOT}/libs/
+        cp tools/srla_codec/build/srla ${ARTIFACT_ROOT}/tools/
+        cp tools/srla_player/build/srlaplayer ${ARTIFACT_ROOT}/tools/
+        tar -czf ${ARTIFACT_ROOT}.tar.gz ${ARTIFACT_ROOT}
+        ARTIFACT_ROOT_SSE41=srla_${{ matrix.os }}_sse41
+        mkdir ${ARTIFACT_ROOT_SSE41} 
+        pushd ${ARTIFACT_ROOT_SSE41}
+        mkdir include && mkdir libs && mkdir tools
+        popd
+        cp include/*.h ${ARTIFACT_ROOT_SSE41}/include/
+        cp build_release_sse41/libsrlacodec.a ${ARTIFACT_ROOT_SSE41}/libs/
+        cp build_release_sse41/libsrladec.a ${ARTIFACT_ROOT_SSE41}/libs/
+        cp tools/srla_codec/build_sse41/srla ${ARTIFACT_ROOT_SSE41}/tools/
+        cp tools/srla_player/build_sse41/srlaplayer ${ARTIFACT_ROOT_SSE41}/tools/
+        tar -czf ${ARTIFACT_ROOT_SSE41}.tar.gz ${ARTIFACT_ROOT_SSE41}
+        ARTIFACT_ROOT_AVX2=srla_${{ matrix.os }}_avx2
+        mkdir ${ARTIFACT_ROOT_AVX2} 
+        pushd ${ARTIFACT_ROOT_AVX2}
+        mkdir include && mkdir libs && mkdir tools
+        popd
+        cp include/*.h ${ARTIFACT_ROOT_AVX2}/include/
+        cp build_release_avx2/libsrlacodec.a ${ARTIFACT_ROOT_AVX2}/libs/
+        cp build_release_avx2/libsrladec.a ${ARTIFACT_ROOT_AVX2}/libs/
+        cp tools/srla_codec/build_avx2/srla ${ARTIFACT_ROOT_AVX2}/tools/
+        cp tools/srla_player/build_avx2/srlaplayer ${ARTIFACT_ROOT_AVX2}/tools/
+        tar -czf ${ARTIFACT_ROOT_AVX2}.tar.gz ${ARTIFACT_ROOT_AVX2}
+
+    - name: Create artifacts on macOS platform
+      if: runner.os == 'macOS'
       run: |
         ARTIFACT_ROOT=srla_${{ matrix.os }}
         mkdir ${ARTIFACT_ROOT} 
@@ -146,16 +183,16 @@ jobs:
         cp tools/srla_player/build_avx2/Release/srlaplayer.exe ${ARTIFACT_ROOT_AVX2}/tools/
         tar -czf "${ARTIFACT_ROOT_AVX2}.tar.gz" ${ARTIFACT_ROOT_AVX2} 
 
-    - name: Upload artifacts on UNIX platforms
-      if: runner.os == 'Linux' || runner.os == 'macOS'
+    - name: Upload artifacts on macOS platform
+      if: runner.os == 'macOS'
       uses: actions/upload-artifact@v4
       with:
         name: artifacts_${{ matrix.os }}
         path: |
           srla_${{ matrix.os }}.tar.gz
 
-    - name: Upload artifacts on Windows
-      if: runner.os == 'Windows'
+    - name: Upload artifacts on Linux / Windows platforms
+      if: runner.os == 'Linux' || runner.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
         name: artifacts_${{ matrix.os }}
