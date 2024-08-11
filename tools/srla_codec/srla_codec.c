@@ -52,7 +52,6 @@ static int do_encode(const char *in_filename, const char *out_filename,
     struct SRLAEncoderConfig config;
     struct SRLAEncodeParameter parameter;
     struct stat fstat;
-    int32_t *input[SRLA_MAX_NUM_CHANNELS];
     uint8_t *buffer;
     uint32_t buffer_size, encoded_data_size;
     SRLAApiResult ret;
@@ -97,18 +96,8 @@ static int do_encode(const char *in_filename, const char *out_filename,
     /* 入力wavの2倍よりは大きくならないだろうという想定 */
     buffer_size = (uint32_t)(2 * fstat.st_size);
 
-    /* エンコードデータ/入力データ領域を作成 */
+    /* エンコードデータ領域を作成 */
     buffer = (uint8_t *)malloc(buffer_size);
-    for (ch = 0; ch < num_channels; ch++) {
-        input[ch] = (int32_t *)malloc(sizeof(int32_t) * num_samples);
-    }
-
-    /* 情報が失われない程度に右シフト */
-    for (ch = 0; ch < num_channels; ch++) {
-        for (smpl = 0; smpl < num_samples; smpl++) {
-            input[ch][smpl] = (int32_t)(WAVFile_PCM(in_wav, smpl, ch) >> (32 - in_wav->format.bits_per_sample));
-        }
-    }
 
     /* エンコード関数の選択 */
     encode_function = (variable_block_num_divisions == 0) ? SRLAEncoder_EncodeBlock : SRLAEncoder_EncodeOptimalPartitionedBlock;
@@ -146,7 +135,7 @@ static int do_encode(const char *in_filename, const char *out_filename,
 
             /* サンプル参照位置のセット */
             for (ch = 0; ch < (uint32_t)num_channels; ch++) {
-                input_ptr[ch] = &input[ch][progress];
+                input_ptr[ch] = &(WAVFile_PCM(in_wav, progress, ch));
             }
 
             /* ブロックエンコード */
@@ -185,9 +174,6 @@ static int do_encode(const char *in_filename, const char *out_filename,
     /* リソース破棄 */
     fclose(out_fp);
     free(buffer);
-    for (ch = 0; ch < num_channels; ch++) {
-        free(input[ch]);
-    }
     WAV_Destroy(in_wav);
     SRLAEncoder_Destroy(encoder);
 
@@ -252,13 +238,6 @@ static int do_decode(const char *in_filename, const char *out_filename, uint8_t 
                 != SRLA_APIRESULT_OK) {
         fprintf(stderr, "Decoding error! %d \n", ret);
         return 1;
-    }
-
-    /* エンコード時に右シフトした分を戻し、32bit化 */
-    for (ch = 0; ch < out_wav->format.num_channels; ch++) {
-        for (smpl = 0; smpl < out_wav->format.num_samples; smpl++) {
-            WAVFile_PCM(out_wav, smpl, ch) <<= (32 - out_wav->format.bits_per_sample);
-        }
     }
 
     /* WAVファイル書き出し */

@@ -388,22 +388,22 @@ EXIT_FAILURE_WITH_DATA_RELEASE:
 /* 8bitPCM形式を32bit形式に変換 */
 static int32_t WAV_Convert8bitPCMto32bitPCM(int32_t in_8bitpcm)
 {
-    /* 無音に相当する128を引いてから32bit整数に切り上げる */
-    return (in_8bitpcm - 128) << 24;
+    /* 無音に相当する128を引く */
+    return (in_8bitpcm - 128);
 }
 
 /* 16bitPCM形式を32bit形式に変換 */
 static int32_t WAV_Convert16bitPCMto32bitPCM(int32_t in_16bitpcm)
 {
-    /* そのまま16bit左シフト */
-    return in_16bitpcm << 16;
+    /* 一旦32bit幅にしてから算術右シフトで符号をつける */
+    return (in_16bitpcm << 16) >> 16;
 }
 
 /* 24bitPCM形式を32bit形式に変換 */
 static int32_t WAV_Convert24bitPCMto32bitPCM(int32_t in_24bitpcm)
 {
-    /* そのまま8bit左シフト */
-    return in_24bitpcm << 8;
+    /* 一旦32bit幅にしてから算術右シフトで符号をつける */
+    return (in_24bitpcm << 8) >> 8;
 }
 
 /* 32bitPCM形式を32bit形式に変換 */
@@ -673,7 +673,7 @@ static WAVError WAVWriter_PutWAVPcmData(
                 buffer = (uint8_t *)writer->buffer.bytes;
                 for (smpl = 0; smpl < num_process_smpls; smpl++) {
                     for (ch = 0; ch < wavfile->format.num_channels; ch++) {
-                        (*buffer++) = (uint8_t)(((WAVFile_PCM(wavfile, progress + smpl, ch) >> 24) + 128) & 0xFF);
+                        (*buffer++) = (uint8_t)((WAVFile_PCM(wavfile, progress + smpl, ch) + 128) & 0xFF);
                     }
                 }
                 if (WAVWrite_FWriteLittleEndian(writer->buffer.bytes,
@@ -695,7 +695,7 @@ static WAVError WAVWriter_PutWAVPcmData(
                 buffer = (int16_t *)writer->buffer.bytes;
                 for (smpl = 0; smpl < num_process_smpls; smpl++) {
                     for (ch = 0; ch < wavfile->format.num_channels; ch++) {
-                        (*buffer++) = (int16_t)((WAVFile_PCM(wavfile, progress + smpl, ch) >> 16) & 0xFFFF);
+                        (*buffer++) = (int16_t)(WAVFile_PCM(wavfile, progress + smpl, ch) & 0xFFFF);
                     }
                 }
                 if (WAVWrite_FWriteLittleEndian(writer->buffer.bytes,
@@ -720,9 +720,9 @@ static WAVError WAVWriter_PutWAVPcmData(
                 for (smpl = 0; smpl < num_process_smpls; smpl++) {
                     for (ch = 0; ch < wavfile->format.num_channels; ch++) {
                         int32_t pcm = WAVFile_PCM(wavfile, progress + smpl, ch);
+                        (*buffer++) = (uint8_t)((pcm >>  0) & 0xFF);
                         (*buffer++) = (uint8_t)((pcm >>  8) & 0xFF);
                         (*buffer++) = (uint8_t)((pcm >> 16) & 0xFF);
-                        (*buffer++) = (uint8_t)((pcm >> 24) & 0xFF);
                     }
                 }
                 if (WAVWrite_FWriteLittleEndian(writer->buffer.bytes,
