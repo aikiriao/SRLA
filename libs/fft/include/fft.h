@@ -1,5 +1,5 @@
 /*!
-* @file ae2_fft.h
+* @file fft.h
 * @brief FFT(Fast Fourior Transform, 高速フーリエ変換)ライブラリ
 */
 #ifndef FFT_H_INCLUDED
