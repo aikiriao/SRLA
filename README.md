@@ -32,11 +32,30 @@ cmake --build build
 ./srla -e INPUT.wav OUTPUT.srl
 ```
 
-you can change compression mode by `-m` option.
+#### Mode `-m`
+
+You can change compression mode by `-m` option.
 Following example encoding in maximum compression (but slow) option.
 
 ```bash
-./srla -e -m 5 INPUT.wav OUTPUT.srl
+./srla -e -m 16 INPUT.wav OUTPUT.srl
+```
+#### Max block size `-B`
+
+You can change maximum block size by `-B` option.
+Following example encoding with maximum block size be 4096 sample.
+
+```bash
+./srla -e -B 4096 INPUT.wav OUTPUT.srl
+```
+
+#### Number of divisions in block `-V`
+
+You can change number of division by `-V` option. Number of division specifies search depth of optimal block division.
+Following example encoding with number of divisions in block to be $2^{2} = 4$.
+
+```bash
+./srla -e -V 2 INPUT.wav OUTPUT.srl
 ```
 
 ### Decode
@@ -44,6 +63,17 @@ Following example encoding in maximum compression (but slow) option.
 ```bash
 ./srla -d INPUT.srl OUTPUT.wav
 ```
+## Performance
+
+We use [RWC music dataset](https://staff.aist.go.jp/m.goto/RWC-MDB/) for comparison.
+
+### Decoding speed vs compression ratio
+
+![Decoding speed vs compression rate](./evaluation/decodespeed_vs_compressionrate_8192_total.png)
+
+### Encoding speed vs compression ratio
+
+![Encoding speed vs compression rate](./evaluation/encodespeed_vs_compressionrate_8192_total.png)
 
 ## License
 
