@@ -130,6 +130,29 @@ class TAK(Codec):
         os.replace(in_filename, tak_in_filename)
         return f'Takc -d -overwrite -silent -tn1 {tak_in_filename} {out_filename}'
 
+class HALAC(Codec):
+    """ HALAC """
+    def __init__(self, compress_option):
+        super().__init__(compress_option)
+        self.HALAC_VERSION_STRING = 'V.0.2.9' # 開発中のコーデックのためバージョンを明示
+    def get_label(self):
+        return f"HALAC {self.HALAC_VERSION_STRING} {self.compress_option}"
+    def generate_encode_command(self, in_filename, out_filename):
+        # 出力の拡張子を.halacにする必要がある
+        out_path = Path(out_filename)
+        halac_out_filename = out_path.with_suffix('.halac')
+        return f"HALAC_ENCODE_{self.HALAC_VERSION_STRING}_x64_avx {in_filename} {halac_out_filename} {self.compress_option}"
+    def post_encode(self, in_filename, out_filename):
+        # .halacを目的のファイル名にリネーム
+        out_path = Path(out_filename)
+        halac_out_filename = out_path.with_suffix('.halac')
+        os.replace(halac_out_filename, out_filename)
+    def generate_decode_command(self, in_filename, out_filename):
+        in_path = Path(in_filename)
+        halac_in_filename = in_path.with_suffix('.halac')
+        os.replace(in_filename, halac_in_filename)
+        return f"HALAC_DECODE_{self.HALAC_VERSION_STRING}_avx {halac_in_filename} {out_filename}"
+
 class NARU(Codec):
     """ NARU """
     def get_label(self):
@@ -214,42 +237,44 @@ CODEC_CONFUGURES = [
         # TAK("-p4"),
         # TAK("-p4e"),
         # TAK("-p4m"),
-        SRLA("-m 2 -V 0 -B 4096"),
-        SRLA("-m 2 -V 1 -B 4096"),
-        SRLA("-m 2 -V 2 -B 4096"),
-        SRLA("-m 2 -V 0 -B 8192"),
-        SRLA("-m 2 -V 1 -B 8192"),
-        SRLA("-m 2 -V 2 -B 8192"),
-        SRLA("-m 2 -V 0 -B 16384"),
-        SRLA("-m 2 -V 1 -B 16384"),
-        SRLA("-m 2 -V 2 -B 16384"),
-        SRLA("-m 8 -V 0 -B 4096"),
-        SRLA("-m 8 -V 1 -B 4096"),
-        SRLA("-m 8 -V 2 -B 4096"),
-        SRLA("-m 8 -V 0 -B 8192"),
-        SRLA("-m 8 -V 1 -B 8192"),
-        SRLA("-m 8 -V 2 -B 8192"),
-        SRLA("-m 8 -V 0 -B 16384"),
-        SRLA("-m 8 -V 1 -B 16384"),
-        SRLA("-m 8 -V 2 -B 16384"),
-        SRLA("-m 12 -V 0 -B 4096"),
-        SRLA("-m 12 -V 1 -B 4096"),
-        SRLA("-m 12 -V 2 -B 4096"),
-        SRLA("-m 12 -V 0 -B 8192"),
-        SRLA("-m 12 -V 1 -B 8192"),
-        SRLA("-m 12 -V 2 -B 8192"),
-        SRLA("-m 12 -V 0 -B 16384"),
-        SRLA("-m 12 -V 1 -B 16384"),
-        SRLA("-m 12 -V 2 -B 16384"),
-        SRLA("-m 16 -V 0 -B 4096"),
-        SRLA("-m 16 -V 1 -B 4096"),
-        SRLA("-m 16 -V 2 -B 4096"),
-        SRLA("-m 16 -V 0 -B 8192"),
-        SRLA("-m 16 -V 1 -B 8192"),
-        SRLA("-m 16 -V 2 -B 8192"),
-        SRLA("-m 16 -V 0 -B 16384"),
-        SRLA("-m 16 -V 1 -B 16384"),
-        SRLA("-m 16 -V 2 -B 16384"),
+        # SRLA("-m 2 -V 0 -B 4096"),
+        # SRLA("-m 2 -V 1 -B 4096"),
+        # SRLA("-m 2 -V 2 -B 4096"),
+        # SRLA("-m 2 -V 0 -B 8192"),
+        # SRLA("-m 2 -V 1 -B 8192"),
+        # SRLA("-m 2 -V 2 -B 8192"),
+        # SRLA("-m 2 -V 0 -B 16384"),
+        # SRLA("-m 2 -V 1 -B 16384"),
+        # SRLA("-m 2 -V 2 -B 16384"),
+        # SRLA("-m 8 -V 0 -B 4096"),
+        # SRLA("-m 8 -V 1 -B 4096"),
+        # SRLA("-m 8 -V 2 -B 4096"),
+        # SRLA("-m 8 -V 0 -B 8192"),
+        # SRLA("-m 8 -V 1 -B 8192"),
+        # SRLA("-m 8 -V 2 -B 8192"),
+        # SRLA("-m 8 -V 0 -B 16384"),
+        # SRLA("-m 8 -V 1 -B 16384"),
+        # SRLA("-m 8 -V 2 -B 16384"),
+        # SRLA("-m 12 -V 0 -B 4096"),
+        # SRLA("-m 12 -V 1 -B 4096"),
+        # SRLA("-m 12 -V 2 -B 4096"),
+        # SRLA("-m 12 -V 0 -B 8192"),
+        # SRLA("-m 12 -V 1 -B 8192"),
+        # SRLA("-m 12 -V 2 -B 8192"),
+        # SRLA("-m 12 -V 0 -B 16384"),
+        # SRLA("-m 12 -V 1 -B 16384"),
+        # SRLA("-m 12 -V 2 -B 16384"),
+        # SRLA("-m 16 -V 0 -B 4096"),
+        # SRLA("-m 16 -V 1 -B 4096"),
+        # SRLA("-m 16 -V 2 -B 4096"),
+        # SRLA("-m 16 -V 0 -B 8192"),
+        # SRLA("-m 16 -V 1 -B 8192"),
+        # SRLA("-m 16 -V 2 -B 8192"),
+        # SRLA("-m 16 -V 0 -B 16384"),
+        # SRLA("-m 16 -V 1 -B 16384"),
+        # SRLA("-m 16 -V 2 -B 16384"),
+        HALAC("-mt=1"),
+        HALAC("-mt=1 -fast"),
     ]
 
 if __name__ == "__main__":
