@@ -11,8 +11,8 @@ matplotlib.rcParams['text.latex.preamble'] = '\\usepackage{sfmath}'
 matplotlib.rcParams["font.size"] = 12
 matplotlib.rcParams['pgf.texsystem'] = 'lualatex'
 
-OTHER_CODEC_LABEL_PREFIXES = ['FLAC', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'TAK']
-COLORLIST = ['crimson', 'g', 'b', 'c', 'm', 'k', 'red', 'orange']
+OTHER_CODEC_LABEL_PREFIXES = ['FLAC', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'TAK', 'HALAC V.0.2.9']
+COLORLIST = ['crimson', 'g', 'b', 'c', 'm', 'k', 'purple', 'red', 'orange']
 CATEGORIES = ['classic', 'genre', 'jazz', 'popular', 'right', 'total']
 
 AVOID_LABEL_LIST = ['FLAC -0', 'WavPack -x4', 'WavPack -h -x4', 'WavPack -hh -x4', 'Monkey\'s Audio -c4000', 'MPEG4-ALS -b', 'MPEG4-ALS -7', 'TAK -p0e', 'TAK -p0', 'TAK -p1e', 'TAK -p1', 'TAK -p2e', 'TAK -p2', 'TAK -p3e', 'TAK -p3','TAK -p4e', 'TAK -p4']
@@ -81,7 +81,6 @@ if __name__ == "__main__":
             plt.ylabel('Average compression rate (\%)')
             plt.legend(ncols=2)
             plt.grid()
-            plt.xlim((0.1, 0.42))
             if category == 'total':
                 plt.ylim(ymin=53.5)
             plt.tight_layout()
