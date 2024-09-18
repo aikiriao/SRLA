@@ -1,5 +1,6 @@
 #include "srla_player.h"
 #include <assert.h>
+#include <stdio.h>
 
 #include <windows.h>
 
@@ -87,10 +88,13 @@ void SRLAPlayer_Initialize(const struct SRLAPlayerConfig* config)
 
     /* 出力フォーマットが対応しているかチェック */
     {
-        WAVEFORMATEX closest_format, * pformat;
+        WAVEFORMATEX closest_format, *pformat;
         pformat = &closest_format;
         hr = IAudioClient_IsFormatSupported(audio_client, AUDCLNT_SHAREMODE_SHARED, &format, &pformat);
-        assert(SUCCEEDED(hr));
+        if (hr != S_OK) {
+            fprintf(stderr, "Unsupported format for WASAPI Playback. \n");
+            exit(1);
+        }
     }
 
     /* クライアント初期化 */
