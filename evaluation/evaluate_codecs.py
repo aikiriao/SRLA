@@ -2,6 +2,7 @@
 import glob
 import os
 import csv
+import filecmp
 from pathlib import Path
 from timeit import timeit
 import numpy as np
@@ -151,7 +152,7 @@ class HALAC(Codec):
         in_path = Path(in_filename)
         halac_in_filename = in_path.with_suffix('.halac')
         os.replace(in_filename, halac_in_filename)
-        return f"HALAC_DECODE_{self.HALAC_VERSION_STRING}_avx {halac_in_filename} {out_filename}"
+        return f"HALAC_DECODE_{self.HALAC_VERSION_STRING}_x64_avx {halac_in_filename} {out_filename}"
 
 class NARU(Codec):
     """ NARU """
@@ -301,10 +302,14 @@ if __name__ == "__main__":
             results[codec.get_label()][categ]\
                 = { 'encode_time': [], 'decode_time': [], 'compress_rate': [] }
             for f in fs:
-                print(f'[{codec.get_label()}] {f}')
                 # 1ファイル計測
                 encode_time, size = codec.encode(f, COMPRESS_TMP_FILENAME)
                 decode_time = codec.decode(COMPRESS_TMP_FILENAME, DECOMPRESS_TMP_FILENAME)
+                # デコード結果一致チェック
+                check_result = 'NG'
+                if os.path.exists(DECOMPRESS_TMP_FILENAME):
+                    if filecmp.cmp(f, DECOMPRESS_TMP_FILENAME):
+                        check_result = 'OK'
                 # 結果記録
                 original_time = _get_wavfile_length_sec(f)
                 results[codec.get_label()][categ]['encode_time']\
@@ -318,6 +323,7 @@ if __name__ == "__main__":
                     os.remove(COMPRESS_TMP_FILENAME)
                 if os.path.exists(DECOMPRESS_TMP_FILENAME):
                     os.remove(DECOMPRESS_TMP_FILENAME)
+                print(f'[{codec.get_label()}] {f} {check_result}')
 
     # 全カテゴリ結果を結合した結果の計算
     total_result = {}
