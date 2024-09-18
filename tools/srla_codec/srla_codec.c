@@ -9,13 +9,13 @@
 #include <sys/stat.h>
 
 /* デフォルトプリセット */
-#define DEFALUT_PRESET_NO 12
+#define DEFALUT_PRESET_INDEX 2
 /* デフォルトの最大ブロックサンプル数 */
 #define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
 /* デフォルトの可変ブロック分割数 */
 #define DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS 1
 /* パラメータプリセットの最大インデックス */
-#define SRLA_MAX_PARAMETER_PRESETS_INDEX 17
+#define SRLA_MAX_PARAMETER_PRESETS_INDEX 4
 #if SRLA_MAX_PARAMETER_PRESETS_INDEX != (SRLA_NUM_PARAMETER_PRESETS - 1)
 #error "Max parameter presets mismatched to number of parameter presets!"
 #endif
@@ -336,7 +336,7 @@ int main(int argc, char** argv)
         }
     } else if (CommandLineParser_GetOptionAcquired(command_line_spec, "encode") == COMMAND_LINE_PARSER_TRUE) {
         /* エンコード */
-        uint32_t encode_preset_no = DEFALUT_PRESET_NO;
+        uint32_t encode_preset_no = DEFALUT_PRESET_INDEX;
         uint32_t max_num_block_samples = DEFALUT_MAX_NUM_BLOCK_SAMPLES;
         uint32_t variable_block_num_divisions = DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS;
         /* エンコードプリセット番号取得 */

@@ -38,7 +38,7 @@ You can change compression mode by `-m` option.
 Following example encoding in maximum compression (but slow) option.
 
 ```bash
-./srla -e -m 16 INPUT.wav OUTPUT.srl
+./srla -e -m 4 INPUT.wav OUTPUT.srl
 ```
 #### Max block size `-B`
 
