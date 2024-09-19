@@ -32,7 +32,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'd', "decode", "Decode mode",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'm', "mode", "Specify compress mode: 0(fast), ..., " TOSTRING(SRLA_MAX_PARAMETER_PRESETS_INDEX) "(high compression) (default:" TOSTRING(DEFALUT_PRESET_NO) ")",
+    { 'm', "mode", "Specify compress mode: 0(fast), ..., " TOSTRING(SRLA_MAX_PARAMETER_PRESETS_INDEX) "(high compression) (default:" TOSTRING(DEFALUT_PRESET_INDEX) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'B', "max-block-size", "Specify max number of block samples (default:" TOSTRING(DEFALUT_MAX_NUM_BLOCK_SAMPLES) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
