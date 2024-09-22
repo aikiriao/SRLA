@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <float.h>
+#include <string.h>
 
 #include "srla_internal.h"
 #include "srla_utility.h"
@@ -26,9 +27,9 @@
 typedef enum SRLACoderCodeTypeTag {
     SRLACODER_CODE_TYPE_RICE = 0, /* TODO: 将来的にGolombにするべきかも */
     SRLACODER_CODE_TYPE_RECURSIVE_RICE = 1,
+    SRLACODER_CODE_TYPE_ALLZERO = 2, /* 疑似ステレオ/逆相などで片チャンネルだけ全て0になる場合がある */
     SRLACODER_CODE_TYPE_INVALID
 } SRLACoderCodeType;
-
 
 /* 符号化ハンドル */
 struct SRLACoder {
@@ -408,7 +409,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
     SRLACoderCodeType *code_type, uint32_t *best_partition_order, uint32_t *best_code_length)
 {
     uint32_t max_porder, max_num_partitions;
-    uint32_t porder, part, best_porder, min_bits, smpl;
+    uint32_t porder, part, best_porder, min_bits, smpl, max_uval;
     SRLACoderCodeType tmp_code_type = SRLACODER_CODE_TYPE_INVALID;
 
     /* 最大分割数の決定 */
@@ -424,6 +425,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
         int32_t i;
 
         /* 最も細かい分割時の平均値 */
+        max_uval = 0;
         for (part = 0; part < max_num_partitions; part++) {
             const uint32_t nsmpl = num_samples / max_num_partitions;
             double part_sum = 0.0;
@@ -432,6 +434,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
                 const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
                 coder->uval_buffer[part * nsmpl + smpl] = uval;
                 part_sum += uval;
+                max_uval = SRLAUTILITY_MAX(max_uval, uval);
             }
             coder->part_mean[max_porder][part] = part_sum / nsmpl;
         }
@@ -445,7 +448,9 @@ static void SRLACoder_SearchBestCodeAndPartition(
     }
 
     /* 全体平均を元に符号を切り替え */
-    if (coder->part_mean[0][0] < 2) {
+    if (max_uval == 0) {
+        tmp_code_type = SRLACODER_CODE_TYPE_ALLZERO;
+    } else if (coder->part_mean[0][0] < 2) {
         tmp_code_type = SRLACODER_CODE_TYPE_RICE;
     } else {
         tmp_code_type = SRLACODER_CODE_TYPE_RECURSIVE_RICE;
@@ -456,12 +461,16 @@ static void SRLACoder_SearchBestCodeAndPartition(
     best_porder = max_porder + 1;
 
     switch (tmp_code_type) {
+    case SRLACODER_CODE_TYPE_ALLZERO:
+        best_porder = 0;
+        min_bits = 0;
+        break;
     case SRLACODER_CODE_TYPE_RICE:
     {
         for (porder = 0; porder <= max_porder; porder++) {
             const uint32_t nsmpl = (num_samples >> porder);
             uint32_t k, prevk;
-            uint32_t bits = 0;
+            uint32_t bits = SRLACODER_LOG2_MAX_NUM_PARTITIONS;
             for (part = 0; part < (1U << porder); part++) {
                 SRLACoder_CalculateOptimalRiceParameter(coder->part_mean[porder][part], &k, NULL);
                 for (smpl = 0; smpl < nsmpl; smpl++) {
@@ -492,7 +501,7 @@ static void SRLACoder_SearchBestCodeAndPartition(
         for (porder = 0; porder <= max_porder; porder++) {
             const uint32_t nsmpl = (num_samples >> porder);
             uint32_t k1, k2, prevk2;
-            uint32_t bits = 0;
+            uint32_t bits = SRLACODER_LOG2_MAX_NUM_PARTITIONS;
             for (part = 0; part < (1U << porder); part++) {
                 SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, NULL);
                 bits += RecursiveRice_ComputeCodeLength(&coder->uval_buffer[part * nsmpl], nsmpl, k1, k2);
@@ -522,8 +531,8 @@ static void SRLACoder_SearchBestCodeAndPartition(
 
     SRLA_ASSERT(best_porder != (max_porder + 1));
 
-    /* 符号タイプと分割数の領域を加算 */
-    min_bits += 1 + SRLACODER_LOG2_MAX_NUM_PARTITIONS;
+    /* 符号タイプの領域を加算 */
+    min_bits += 2;
 
     /* 結果を記録 */
     (*code_type) = tmp_code_type;
@@ -589,16 +598,18 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
 
     /* 最適な分割を用いて符号化 */
     {
-        const uint32_t nsmpl = num_samples >> best_porder;
-
         SRLA_ASSERT(code_type != SRLACODER_CODE_TYPE_INVALID);
-        BitWriter_PutBits(stream, code_type, 1);
-        BitWriter_PutBits(stream, best_porder, SRLACODER_LOG2_MAX_NUM_PARTITIONS);
+        BitWriter_PutBits(stream, code_type, 2);
 
         switch (code_type) {
+        case SRLACODER_CODE_TYPE_ALLZERO:
+            break;
         case SRLACODER_CODE_TYPE_RICE:
         {
             uint32_t k, prevk;
+            const uint32_t nsmpl = num_samples >> best_porder;
+
+            BitWriter_PutBits(stream, best_porder, SRLACODER_LOG2_MAX_NUM_PARTITIONS);
             for (part = 0; part < (1U << best_porder); part++) {
                 SRLACoder_CalculateOptimalRiceParameter(coder->part_mean[best_porder][part], &k, NULL);
                 if (part == 0) {
@@ -618,6 +629,9 @@ static void SRLACoder_EncodePartitionedRecursiveRice(struct SRLACoder *coder, st
         case SRLACODER_CODE_TYPE_RECURSIVE_RICE:
         {
             uint32_t k1, k2, prevk2;
+            const uint32_t nsmpl = num_samples >> best_porder;
+
+            BitWriter_PutBits(stream, best_porder, SRLACODER_LOG2_MAX_NUM_PARTITIONS);
             for (part = 0; part < (1U << best_porder); part++) {
                 SRLACoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[best_porder][part], &k1, &k2, NULL);
                 if (part == 0) {
@@ -693,14 +707,17 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
 
     SRLACoderCodeType code_type = SRLACODER_CODE_TYPE_INVALID;
 
-    BitReader_GetBits(stream, (uint32_t *)&code_type, 1);
-    BitReader_GetBits(stream, &best_porder, SRLACODER_LOG2_MAX_NUM_PARTITIONS);
-    nsmpl = num_samples >> best_porder;
+    BitReader_GetBits(stream, (uint32_t *)&code_type, 2);
 
     switch (code_type) {
+    case SRLACODER_CODE_TYPE_ALLZERO:
+        memset(data, 0, sizeof(int32_t) * num_samples);
+        break;
     case SRLACODER_CODE_TYPE_RICE:
     {
         uint32_t k;
+        BitReader_GetBits(stream, &best_porder, SRLACODER_LOG2_MAX_NUM_PARTITIONS);
+        nsmpl = num_samples >> best_porder;
         for (part = 0; part < (1U << best_porder); part++) {
             if (part == 0) {
                 BitReader_GetBits(stream, &k, SRLACODER_RICE_PARAMETER_BITS);
@@ -719,6 +736,8 @@ static void SRLACoder_DecodePartitionedRecursiveRice(struct BitStream *stream, i
     case SRLACODER_CODE_TYPE_RECURSIVE_RICE:
     {
         uint32_t k2;
+        BitReader_GetBits(stream, &best_porder, SRLACODER_LOG2_MAX_NUM_PARTITIONS);
+        nsmpl = num_samples >> best_porder;
         for (part = 0; part < (1U << best_porder); part++) {
             if (part == 0) {
                 BitReader_GetBits(stream, &k2, SRLACODER_RICE_PARAMETER_BITS);
