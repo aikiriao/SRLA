@@ -104,8 +104,11 @@ void SRLAPlayer_Initialize(const struct SRLAPlayerConfig* config)
             | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM /* レート変換の自動挿入を有効にする */
             | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY, /* 良い品質のレート変換を使う */
             REQUESTED_SOUND_BUFFER_DURATION, 0, &format, NULL);
-    assert(SUCCEEDED(hr));
-
+    if (FAILED(hr)) {
+        fprintf(stderr, "Failed to initialize WASAPI client. \n");
+        exit(2);
+    }
+    
     /* サンプリングレート変換設定 */
     {
         IAudioClockAdjustment* clock_adj;
