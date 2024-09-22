@@ -108,7 +108,7 @@ void SRLAPlayer_Initialize(const struct SRLAPlayerConfig* config)
         fprintf(stderr, "Failed to initialize WASAPI client. \n");
         exit(2);
     }
-    
+
     /* サンプリングレート変換設定 */
     {
         IAudioClockAdjustment* clock_adj;
