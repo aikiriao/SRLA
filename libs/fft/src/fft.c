@@ -81,8 +81,8 @@ static void FFT_ComplexFFT(int n, const int flag, FFTComplex *x, FFTComplex *y)
         const int n3 = n1 + n2;
         const double theta0 = 2.0 * FFT_PI / n;
         FFTComplex j, wdelta, w1p;
-        j.real = 0.0; j.imag = flag;
-        wdelta.real = cos(theta0); wdelta.imag = -flag * sin(theta0);
+        j.real = 0.0; j.imag = -flag;
+        wdelta.real = cos(theta0); wdelta.imag = flag * sin(theta0);
         w1p.real = 1.0; w1p.imag = 0.0;
         for (p = 0; p < n1; p++) {
             /* より精密 しかしsin,cosの関数呼び出しがある
@@ -147,13 +147,13 @@ void FFT_FloatFFT(int n, const int flag, double *x, double *y)
 void FFT_RealFFT(int n, const int flag, double *x, double *y)
 {
     int i;
-    const double theta = -flag * 2.0 * FFT_PI / n;
+    const double theta = flag * 2.0 * FFT_PI / n;
     const double wpi = sin(theta);
     const double wpr = cos(theta) - 1.0;
     const double c2 = flag * 0.5;
     double wr, wi, wtmp;
 
-    /* FFTの場合は先に順変換 */
+    /* FFTの場合は先に変換 */
     if (flag == -1) {
         FFT_FloatFFT(n >> 1, -1, x, y);
     }
@@ -164,7 +164,7 @@ void FFT_RealFFT(int n, const int flag, double *x, double *y)
 
     /* スペクトルの対称性を使用し */
     /* FFTの場合は最終結果をまとめ、IFFTの場合は元に戻るよう整理 */
-    for (i = 1; i < (n >> 2); i++) {
+    for (i = 1; i <= (n >> 2); i++) {
         const int i1 = (i << 1);
         const int i2 = i1 + 1;
         const int i3 = n - i1;
