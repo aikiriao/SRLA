@@ -44,6 +44,8 @@ static void SRLAEncodeDecodeTest_GenerateNegativeConstant(double **data, uint32_
 static void SRLAEncodeDecodeTest_GenerateNyquistOsc(double **data, uint32_t num_channels, uint32_t num_samples);
 /* ガウス雑音の生成 */
 static void SRLAEncodeDecodeTest_GenerateGaussNoise(double **data, uint32_t num_channels, uint32_t num_samples);
+/* 先頭部分で微小なインパルスの生成 */
+static void SRLAEncodeDecodeTest_GenerateMiniImpulse(double** data, uint32_t num_channels, uint32_t num_samples);
 
 /* 無音の生成 */
 static void SRLAEncodeDecodeTest_GenerateSilence(
@@ -186,6 +188,22 @@ static void SRLAEncodeDecodeTest_GenerateGaussNoise(
             data[ch][smpl] = (data[ch][smpl] >= 1.0f) ?   1.0f : data[ch][smpl];
             data[ch][smpl] = (data[ch][smpl] <= -1.0f) ? -1.0f : data[ch][smpl];
         }
+    }
+}
+
+/* 先頭部分で微小なインパルスの生成 */
+static void SRLAEncodeDecodeTest_GenerateMiniImpulse(
+    double** data, uint32_t num_channels, uint32_t num_samples)
+{
+    uint32_t smpl, ch;
+
+    assert(data != NULL);
+
+    for (ch = 0; ch < num_channels; ch++) {
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            data[ch][smpl] = 0.0f;
+        }
+        data[ch][1] = pow(2.0, -15.0);
     }
 }
 
@@ -543,6 +561,25 @@ TEST(SRLAEncodeDecodeTest, EncodeDecodeCheckTest)
         { { 8,  8, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateGaussNoise },
         { { 8, 16, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateGaussNoise },
         { { 8, 24, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateGaussNoise },
+        /* 微小インパルスの部 */
+        { { 1,  8, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 1, 16, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 1, 24, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 2,  8, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 2, 16, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 2, 24, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 8,  8, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 8, 16, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 8, 24, 8000, 512, 1024, 0 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 1,  8, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 1, 16, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 1, 24, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 2,  8, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 2, 16, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 2, 24, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 8,  8, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 8, 16, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
+        { { 8, 24, 8000, 512, 1024, SRLA_NUM_PARAMETER_PRESETS - 1 }, 0, 8500, SRLAEncodeDecodeTest_GenerateMiniImpulse },
     };
 
     /* テストケース数 */

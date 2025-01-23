@@ -875,11 +875,12 @@ static double SRLAEncoder_CalculateRGRMeanCodeLength(double mean_abs_error, uint
 /* 幾何分布のエントロピーを計算 */
 static double SRLAEncoder_CalculateGeometricDistributionEntropy(double mean_abs_error, uint32_t bps)
 {
+    const double min_abs_error = 1e-16; /* 最小絶対値 */
     const double intmean = mean_abs_error * (1 << (bps - 1)); /* 整数量子化した時の平均値 */
     const double rho = 1.0 / (1.0 + intmean);
     const double invrho = 1.0 - rho;
 
-    if (mean_abs_error < FLT_MIN) {
+    if (mean_abs_error < min_abs_error) {
         return 0.0;
     }
 
