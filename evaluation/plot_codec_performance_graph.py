@@ -11,7 +11,7 @@ matplotlib.rcParams['text.latex.preamble'] = '\\usepackage{sfmath}'
 matplotlib.rcParams["font.size"] = 12
 matplotlib.rcParams['pgf.texsystem'] = 'lualatex'
 
-OTHER_CODEC_LABEL_PREFIXES = ['FLAC', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'TAK']
+OTHER_CODEC_LABEL_PREFIXES = ['FLAC', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'TAK', 'HALAC V.0.3.8']
 COLORLIST = ['crimson', 'g', 'b', 'c', 'm', 'k', 'purple', 'red', 'orange']
 CATEGORIES = ['classic', 'genre', 'jazz', 'popular', 'right', 'total']
 
