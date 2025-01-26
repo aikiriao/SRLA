@@ -88,12 +88,14 @@ void SRLAPlayer_Initialize(const struct SRLAPlayerConfig* config)
 
     /* 出力フォーマットが対応しているかチェック */
     {
-        WAVEFORMATEX closest_format, *pformat;
-        pformat = &closest_format;
+        WAVEFORMATEX *pformat;
         hr = IAudioClient_IsFormatSupported(audio_client, AUDCLNT_SHAREMODE_SHARED, &format, &pformat);
         if (hr != S_OK) {
-            fprintf(stderr, "Unsupported format for WASAPI Playback. \n");
-            exit(1);
+            /* レートは変換できるがそれ以外のフォーマットの差異は対応していないためエラー終了 */
+            if ((format.nSamplesPerSec == pformat->nSamplesPerSec) || (format.nChannels != pformat->nChannels)) {
+                fprintf(stderr, "Unsupported format for WASAPI Playback. \n");
+                exit(1);
+            }
         }
     }
 
