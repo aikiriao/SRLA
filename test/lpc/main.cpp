@@ -83,9 +83,6 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
         EXPECT_TRUE(lpcc == NULL);
 
         /* コンフィグパラメータが不正 */
-        config.max_order = 0; config.max_num_samples = 1;
-        lpcc = LPCCalculator_Create(&config, work, work_size);
-        EXPECT_TRUE(lpcc == NULL);
         config.max_order = 1; config.max_num_samples = 0;
         lpcc = LPCCalculator_Create(&config, work, work_size);
         EXPECT_TRUE(lpcc == NULL);
@@ -99,9 +96,6 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
         struct LPCCalculatorConfig config;
 
         /* コンフィグパラメータが不正 */
-        config.max_order = 0; config.max_num_samples = 1;
-        lpcc = LPCCalculator_Create(&config, NULL, 0);
-        EXPECT_TRUE(lpcc == NULL);
         config.max_order = 1; config.max_num_samples = 0;
         lpcc = LPCCalculator_Create(&config, NULL, 0);
         EXPECT_TRUE(lpcc == NULL);

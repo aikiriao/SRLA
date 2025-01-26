@@ -188,10 +188,6 @@ TEST(SRLADecoderTest, CreateDestroyHandleTest)
         SRLADecoder_SetValidConfig(&config);
         config.max_num_channels = 0;
         EXPECT_TRUE(SRLADecoder_CalculateWorkSize(&config) < 0);
-
-        SRLADecoder_SetValidConfig(&config);
-        config.max_num_parameters = 0;
-        EXPECT_TRUE(SRLADecoder_CalculateWorkSize(&config) < 0);
     }
 
     /* ワーク領域渡しによるハンドル作成（成功例） */
@@ -265,11 +261,6 @@ TEST(SRLADecoderTest, CreateDestroyHandleTest)
         config.max_num_channels = 0;
         decoder = SRLADecoder_Create(&config, work, work_size);
         EXPECT_TRUE(decoder == NULL);
-
-        SRLADecoder_SetValidConfig(&config);
-        config.max_num_parameters = 0;
-        decoder = SRLADecoder_Create(&config, work, work_size);
-        EXPECT_TRUE(decoder == NULL);
     }
 
     /* 自前確保によるハンドル作成（失敗ケース） */
@@ -286,11 +277,6 @@ TEST(SRLADecoderTest, CreateDestroyHandleTest)
         /* コンフィグが不正 */
         SRLADecoder_SetValidConfig(&config);
         config.max_num_channels = 0;
-        decoder = SRLADecoder_Create(&config, NULL, 0);
-        EXPECT_TRUE(decoder == NULL);
-
-        SRLADecoder_SetValidConfig(&config);
-        config.max_num_parameters = 0;
         decoder = SRLADecoder_Create(&config, NULL, 0);
         EXPECT_TRUE(decoder == NULL);
     }

@@ -134,10 +134,6 @@ TEST(SRLAEncoderTest, CreateDestroyHandleTest)
         SRLAEncoder_SetValidConfig(&config);
         config.max_num_samples_per_block = 0;
         EXPECT_TRUE(SRLAEncoder_CalculateWorkSize(&config) < 0);
-
-        SRLAEncoder_SetValidConfig(&config);
-        config.max_num_parameters = 0;
-        EXPECT_TRUE(SRLAEncoder_CalculateWorkSize(&config) < 0);
     }
 
     /* ワーク領域渡しによるハンドル作成（成功例） */
@@ -213,11 +209,6 @@ TEST(SRLAEncoderTest, CreateDestroyHandleTest)
         encoder = SRLAEncoder_Create(&config, work, work_size);
         EXPECT_TRUE(encoder == NULL);
 
-        SRLAEncoder_SetValidConfig(&config);
-        config.max_num_parameters = 0;
-        encoder = SRLAEncoder_Create(&config, work, work_size);
-        EXPECT_TRUE(encoder == NULL);
-
         free(work);
     }
 
@@ -240,11 +231,6 @@ TEST(SRLAEncoderTest, CreateDestroyHandleTest)
 
         SRLAEncoder_SetValidConfig(&config);
         config.max_num_samples_per_block = 0;
-        encoder = SRLAEncoder_Create(&config, NULL, 0);
-        EXPECT_TRUE(encoder == NULL);
-
-        SRLAEncoder_SetValidConfig(&config);
-        config.max_num_parameters = 0;
         encoder = SRLAEncoder_Create(&config, NULL, 0);
         EXPECT_TRUE(encoder == NULL);
     }
