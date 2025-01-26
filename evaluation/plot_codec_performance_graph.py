@@ -11,7 +11,7 @@ matplotlib.rcParams['text.latex.preamble'] = '\\usepackage{sfmath}'
 matplotlib.rcParams["font.size"] = 12
 matplotlib.rcParams['pgf.texsystem'] = 'lualatex'
 
-OTHER_CODEC_LABEL_PREFIXES = ['FLAC', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'TAK', 'HALAC V.0.2.9']
+OTHER_CODEC_LABEL_PREFIXES = ['FLAC', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'TAK']
 COLORLIST = ['crimson', 'g', 'b', 'c', 'm', 'k', 'purple', 'red', 'orange']
 CATEGORIES = ['classic', 'genre', 'jazz', 'popular', 'right', 'total']
 
@@ -54,8 +54,8 @@ if __name__ == "__main__":
                         if not str(block_size) in label or not f'-V {div}' in label:
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
-                        decode_time = srla_codecs_df.at[f'{category} mean decode time', label]
-                        compress_rate = srla_codecs_df.at[f'{category} mean compression rate', label]
+                        decode_time = float(srla_codecs_df.at[f'{category} mean decode time', label])
+                        compress_rate = float(srla_codecs_df.at[f'{category} mean compression rate', label])
                         texts.append(plt.text(decode_time, compress_rate, option_prefix, size=10))
                         line[0].append(decode_time)
                         line[1].append(compress_rate)
@@ -68,8 +68,8 @@ if __name__ == "__main__":
                         if not str(block_size) in label or not f'-V {div}' in label:
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
-                        decode_time = avx2_srla_codecs_df.at[f'{category} mean decode time', label]
-                        compress_rate = avx2_srla_codecs_df.at[f'{category} mean compression rate', label]
+                        decode_time = float(avx2_srla_codecs_df.at[f'{category} mean decode time', label])
+                        compress_rate = float(avx2_srla_codecs_df.at[f'{category} mean compression rate', label])
                         texts.append(plt.text(decode_time, compress_rate, option_prefix, size=10))
                         line[0].append(decode_time)
                         line[1].append(compress_rate)
