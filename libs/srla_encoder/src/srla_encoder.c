@@ -453,8 +453,7 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     /* コンフィグチェック */
     if ((config->max_num_samples_per_block == 0)
             || (config->min_num_samples_per_block == 0)
-            || (config->max_num_channels == 0)
-            || (config->max_num_parameters == 0)) {
+            || (config->max_num_channels == 0)) {
         return -1;
     }
 
@@ -559,8 +558,7 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
 
     /* コンフィグチェック */
     if ((config->max_num_channels == 0)
-        || (config->max_num_samples_per_block == 0)
-        || (config->max_num_parameters == 0)) {
+        || (config->max_num_samples_per_block == 0)) {
         return NULL;
     }
 
@@ -1032,35 +1030,43 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         return err;
     }
 
-    /* 最良の次数をパラメータに設定 */
-    double_coef = encoder->multiple_lpc_coefs[tmp_coef_order - 1];
+    /* 係数計算・残差計算 */
+    if (tmp_coef_order > 0) {
+        /* 最良の次数をパラメータに設定 */
+        double_coef = encoder->multiple_lpc_coefs[tmp_coef_order - 1];
 
-    /* SVRによるLPC係数計算 */
-    if ((ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
-        buffer_double, num_samples,
-        double_coef, tmp_coef_order, parameter_preset->svr_max_num_iterations,
-        LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER,
-        parameter_preset->margin_list, parameter_preset->margin_list_size)) != LPC_APIRESULT_OK) {
-        return SRLA_ERROR_NG;
+        /* SVRによるLPC係数計算 */
+        if ((ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
+            buffer_double, num_samples,
+            double_coef, tmp_coef_order, parameter_preset->svr_max_num_iterations,
+            LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER,
+            parameter_preset->margin_list, parameter_preset->margin_list_size)) != LPC_APIRESULT_OK) {
+            return SRLA_ERROR_NG;
+        }
+
+        /* LPC係数量子化 */
+        if ((ret = LPC_QuantizeCoefficients(double_coef, tmp_coef_order,
+            SRLA_LPC_COEFFICIENT_BITWIDTH, (1 << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH),
+            tmp_int_coef, &tmp_coef_rshift)) != LPC_APIRESULT_OK) {
+            return SRLA_ERROR_NG;
+        }
+
+        /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
+        for (p = 0; p < tmp_coef_order / 2; p++) {
+            int32_t tmp = tmp_int_coef[p];
+            tmp_int_coef[p] = tmp_int_coef[tmp_coef_order - p - 1];
+            tmp_int_coef[tmp_coef_order - p - 1] = tmp;
+        }
+
+        /* LPC予測 */
+        SRLALPC_Predict(buffer_int,
+            num_samples, tmp_int_coef, tmp_coef_order, residual_int, tmp_coef_rshift);
+    } else {
+        /* 次数が0の時は計算をスキップし、入力を単純コピー */
+        memcpy(residual_int, buffer_int, sizeof(int32_t) * num_samples);
+        /* 右シフトも0とする */
+        tmp_coef_rshift = 0;
     }
-
-    /* LPC係数量子化 */
-    if ((ret = LPC_QuantizeCoefficients(double_coef, tmp_coef_order,
-        SRLA_LPC_COEFFICIENT_BITWIDTH, (1 << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH),
-        tmp_int_coef, &tmp_coef_rshift)) != LPC_APIRESULT_OK) {
-        return SRLA_ERROR_NG;
-    }
-
-    /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
-    for (p = 0; p < tmp_coef_order / 2; p++) {
-        int32_t tmp = tmp_int_coef[p];
-        tmp_int_coef[p] = tmp_int_coef[tmp_coef_order - p - 1];
-        tmp_int_coef[tmp_coef_order - p - 1] = tmp;
-    }
-
-    /* LPC予測 */
-    SRLALPC_Predict(buffer_int,
-        num_samples, tmp_int_coef, tmp_coef_order, residual_int, tmp_coef_rshift);
 
     /* 符号長計算 */
     tmp_code_length = 0;
@@ -1081,8 +1087,8 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     /* 和をとったか/とらないかのフラグ領域 */
     tmp_code_length += 1;
 
-    /* LPC係数領域 */
-    {
+    /* LPC係数領域サイズ計算 */
+    if (tmp_coef_order > 0) {
         uint32_t coef_code_length = 0, summed_coef_code_length;
 
         /* 和をとらない形式で符号長計算 */
@@ -1110,7 +1116,11 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
             }
         }
 
+        /* 係数領域サイズ */
         tmp_code_length += (tmp_use_sum_coef) ? summed_coef_code_length : coef_code_length;
+    } else {
+        /* 次数が0の時は係数領域はない */
+        tmp_use_sum_coef = 0;
     }
 
     /* 結果の出力 */
@@ -1310,9 +1320,8 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     for (ch = 0; ch < header->num_channels; ch++) {
         uint32_t i, uval;
         /* LPC係数次数 */
-        SRLA_ASSERT(encoder->coef_order[ch] > 0);
-        SRLA_ASSERT(encoder->coef_order[ch] <= (1U << SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH));
-        BitWriter_PutBits(&writer, encoder->coef_order[ch] - 1, SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
+        SRLA_ASSERT(encoder->coef_order[ch] < (1U << SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH));
+        BitWriter_PutBits(&writer, encoder->coef_order[ch], SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
         /* LPC係数右シフト量 */
         SRLA_ASSERT(encoder->coef_rshifts[ch] < (1U << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
         BitWriter_PutBits(&writer, encoder->coef_rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);

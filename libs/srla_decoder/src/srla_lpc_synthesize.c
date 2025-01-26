@@ -25,6 +25,11 @@ void SRLALPC_Synthesize(
     SRLA_ASSERT(data != NULL);
     SRLA_ASSERT(coef != NULL);
 
+    /* 予測次数が0の時は何もしない */
+    if (coef_order == 0) {
+        return;
+    }
+
     for (smpl = 1; smpl < coef_order; smpl++) {
         data[smpl] += data[smpl - 1];
     }
@@ -122,6 +127,11 @@ void SRLALPC_Synthesize(
     /* 引数チェック */
     SRLA_ASSERT(data != NULL);
     SRLA_ASSERT(coef != NULL);
+
+    /* 予測次数が0の時は何もしない */
+    if (coef_order == 0) {
+        return;
+    }
 
     for (smpl = 1; smpl < coef_order; smpl++) {
         data[smpl] += data[smpl - 1];
@@ -236,6 +246,11 @@ void SRLALPC_Synthesize(
     /* 引数チェック */
     SRLA_ASSERT(data != NULL);
     SRLA_ASSERT(coef != NULL);
+
+    /* 予測次数が0の時は何もしない */
+    if (coef_order == 0) {
+        return;
+    }
 
     for (smpl = 1; smpl < coef_order; smpl++) {
         data[smpl] += data[smpl - 1];

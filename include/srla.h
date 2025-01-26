@@ -4,10 +4,10 @@
 #include "srla_stdint.h"
 
 /* フォーマットバージョン */
-#define SRLA_FORMAT_VERSION         5
+#define SRLA_FORMAT_VERSION         6
 
 /* コーデックバージョン */
-#define SRLA_CODEC_VERSION          8
+#define SRLA_CODEC_VERSION          9
 
 /* ヘッダサイズ */
 #define SRLA_HEADER_SIZE            29
@@ -15,11 +15,11 @@
 /* 処理可能な最大チャンネル数 */
 #define SRLA_MAX_NUM_CHANNELS       8
 
-/* 最大係数サイズ */
-#define SRLA_MAX_COEFFICIENT_ORDER  256
+/* 最大係数次数 */
+#define SRLA_MAX_COEFFICIENT_ORDER  255
 
 /* パラメータプリセット数 */
-#define SRLA_NUM_PARAMETER_PRESETS  5
+#define SRLA_NUM_PARAMETER_PRESETS  7
 
 
 /* API結果型 */

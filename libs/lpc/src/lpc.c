@@ -136,7 +136,7 @@ struct LPCCalculator* LPCCalculator_Create(const struct LPCCalculatorConfig *con
     /* 引数チェック */
     if ((config == NULL) || (work == NULL)
             || (work_size < LPCCalculator_CalculateWorkSize(config))
-            || (config->max_order == 0) || (config->max_num_samples == 0)) {
+            || (config->max_num_samples == 0)) {
         if (tmp_alloc_by_own == 1) {
             free(work);
         }

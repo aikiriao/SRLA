@@ -182,8 +182,7 @@ int32_t SRLADecoder_CalculateWorkSize(const struct SRLADecoderConfig *config)
     }
 
     /* コンフィグチェック */
-    if ((config->max_num_channels == 0)
-            || (config->max_num_parameters == 0)) {
+    if (config->max_num_channels == 0) {
         return -1;
     }
 
@@ -226,8 +225,7 @@ struct SRLADecoder *SRLADecoder_Create(const struct SRLADecoderConfig *config, v
     }
 
     /* コンフィグチェック */
-    if ((config->max_num_channels == 0)
-            || (config->max_num_parameters == 0)) {
+    if (config->max_num_channels == 0) {
         return NULL;
     }
 
@@ -463,7 +461,6 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         uint32_t i, uval, use_sum_coef;
         /* LPC係数次数 */
         BitReader_GetBits(&reader, &decoder->coef_order[ch], SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
-        decoder->coef_order[ch] += 1; /* -1してエンコードしてあるので戻す */
         /* 各レイヤーでのLPC係数右シフト量 */
         BitReader_GetBits(&reader, &decoder->rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
         /* LPC係数 */
