@@ -15,12 +15,17 @@ OTHER_CODEC_LABEL_PREFIXES = ['FLAC', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG
 COLORLIST = ['crimson', 'g', 'b', 'c', 'm', 'k', 'purple', 'red', 'orange']
 CATEGORIES = ['classic', 'genre', 'jazz', 'popular', 'right', 'total']
 
-AVOID_LABEL_LIST = ['FLAC -0', 'WavPack -x4', 'WavPack -h -x4', 'WavPack -hh -x4', 'Monkey\'s Audio -c4000', 'MPEG4-ALS -b', 'MPEG4-ALS -7', 'TAK -p0e', 'TAK -p0', 'TAK -p1e', 'TAK -p1', 'TAK -p2e', 'TAK -p2', 'TAK -p3e', 'TAK -p3','TAK -p4e', 'TAK -p4']
+AVOID_LABEL_LIST = ['FLAC -0', 'WavPack -x4', 'WavPack -h -x4', 'WavPack -hh -x4', 'Monkey\'s Audio -c4000', 'MPEG4-ALS -b', 'MPEG4-ALS -7', 'TAK -p0e', 'TAK -p0', 'TAK -p1e', 'TAK -p1', 'TAK -p2e', 'TAK -p2', 'TAK -p3e', 'TAK -p3','TAK -p4e', 'TAK -p4', 'SRLA -m 0']
 
-def _is_avoid_label(label):
-    for content in AVOID_LABEL_LIST:
-        if label == content:
-            return True
+def _is_avoid_label(label, include_match=False):
+    if include_match is True:
+        for content in AVOID_LABEL_LIST:
+            if label.startswith(content):
+                return True
+    else:
+        for content in AVOID_LABEL_LIST:
+            if label == content:
+                return True
     return False
 
 if __name__ == "__main__":
@@ -33,6 +38,7 @@ if __name__ == "__main__":
         for category in CATEGORIES:
             texts = []
             plt.cla()
+            plt.figure(figsize=(8, 6))
             # 他コーデック
             for inx, cprefix in enumerate(OTHER_CODEC_LABEL_PREFIXES):
                 line = [[], []]
@@ -51,7 +57,7 @@ if __name__ == "__main__":
                 line = [[], []]
                 for label in srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label:
+                        if not str(block_size) in label or not f'-V {div}' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         decode_time = float(srla_codecs_df.at[f'{category} mean decode time', label])
@@ -65,7 +71,7 @@ if __name__ == "__main__":
                 line = [[], []]
                 for label in avx2_srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label:
+                        if not str(block_size) in label or not f'-V {div}' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         decode_time = float(avx2_srla_codecs_df.at[f'{category} mean decode time', label])
@@ -108,7 +114,7 @@ if __name__ == "__main__":
                 line = [[], []]
                 for label in srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label:
+                        if not str(block_size) in label or not f'-V {div}' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         encode_time = srla_codecs_df.at[f'{category} mean encode time', label]
