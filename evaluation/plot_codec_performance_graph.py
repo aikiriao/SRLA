@@ -96,6 +96,7 @@ if __name__ == "__main__":
         for category in CATEGORIES:
             texts = []
             plt.cla()
+            plt.figure(figsize=(8, 6))
             # 他コーデック
             for inx, cprefix in enumerate(OTHER_CODEC_LABEL_PREFIXES):
                 line = [[], []]
