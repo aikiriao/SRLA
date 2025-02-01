@@ -31,6 +31,7 @@ extern "C" {
         param__p->sampling_rate             = 44100;\
         param__p->min_num_samples_per_block = 1024;\
         param__p->max_num_samples_per_block = 2048;\
+        param__p->num_lookahead_samples     = 4096;\
         param__p->preset                    = 0;\
     } while (0);
 
@@ -41,6 +42,7 @@ extern "C" {
         config__p->max_num_channels          = 8;\
         config__p->min_num_samples_per_block = 1024;\
         config__p->max_num_samples_per_block = 4096;\
+        config__p->max_num_lookahead_samples = 4096;\
         config__p->max_num_parameters        = 32;\
     } while (0);
 
