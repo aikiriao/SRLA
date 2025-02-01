@@ -12,6 +12,8 @@
 #define DEFALUT_PRESET_INDEX 4
 /* デフォルトの最大ブロックサンプル数 */
 #define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
+/* デフォルトの先読みサンプル数倍率 */
+#define DEFALUT_LOOKAHEAD_SAMPLES_FACTOR 4
 /* デフォルトの可変ブロック分割数 */
 #define DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS 1
 /* パラメータプリセットの最大インデックス */
@@ -34,6 +36,8 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'm', "mode", "Specify compress mode: 0(fast), ..., " TOSTRING(SRLA_MAX_PARAMETER_PRESETS_INDEX) "(high compression) (default:" TOSTRING(DEFALUT_PRESET_INDEX) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'L', "lookahead-sample-factor", "Specify the multiply factor for lookahead samples in variable block division (default:" TOSTRING(DEFALUT_LOOKAHEAD_SAMPLES_FACTOR) ")",
+        COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'B', "max-block-size", "Specify max number of block samples (default:" TOSTRING(DEFALUT_MAX_NUM_BLOCK_SAMPLES) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'V', "variable-block-divisions", "Specify number of variable block-size divisions (default:" TOSTRING(DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS) ")",
@@ -47,9 +51,18 @@ static struct CommandLineParserSpecification command_line_spec[] = {
     { 0, }
 };
 
+/* ブロックエンコードコールバック */
+static void encode_block_callback(
+    uint32_t num_samples, uint32_t progress_samples, const uint8_t *encoded_block_data, uint32_t block_data_size)
+{
+    /* 進捗表示 */
+    printf("progress... %5.2f%% \r", (double)((progress_samples * 100.0) / num_samples));
+    fflush(stdout);
+}
+
 /* エンコード 成功時は0、失敗時は0以外を返す */
 static int do_encode(const char *in_filename, const char *out_filename,
-    uint32_t encode_preset_no, uint32_t max_num_block_samples, uint32_t variable_block_num_divisions)
+    uint32_t encode_preset_no, uint32_t max_num_block_samples, uint32_t variable_block_num_divisions, uint32_t LOOKAHEAD_SAMPLES_FACTOR)
 {
     FILE *out_fp;
     struct WAVFile *in_wav;
@@ -61,14 +74,12 @@ static int do_encode(const char *in_filename, const char *out_filename,
     uint32_t buffer_size, encoded_data_size;
     SRLAApiResult ret;
     uint32_t ch, smpl, num_channels, num_samples;
-    SRLAApiResult (*encode_function)(struct SRLAEncoder* encoder,
-        const int32_t* const* input, uint32_t num_samples,
-        uint8_t * data, uint32_t data_size, uint32_t * output_size);
 
     /* エンコーダ作成 */
     config.max_num_channels = SRLA_MAX_NUM_CHANNELS;
     config.min_num_samples_per_block = max_num_block_samples >> variable_block_num_divisions;
     config.max_num_samples_per_block = max_num_block_samples;
+    config.max_num_lookahead_samples = LOOKAHEAD_SAMPLES_FACTOR * max_num_block_samples;
     config.max_num_parameters = SRLA_MAX_COEFFICIENT_ORDER;
     if ((encoder = SRLAEncoder_Create(&config, NULL, 0)) == NULL) {
         fprintf(stderr, "Failed to create encoder handle. \n");
@@ -89,6 +100,7 @@ static int do_encode(const char *in_filename, const char *out_filename,
     parameter.sampling_rate = in_wav->format.sampling_rate;
     parameter.min_num_samples_per_block = max_num_block_samples >> variable_block_num_divisions;
     parameter.max_num_samples_per_block = max_num_block_samples;
+    parameter.num_lookahead_samples = LOOKAHEAD_SAMPLES_FACTOR * max_num_block_samples;
     /* プリセットの反映 */
     parameter.preset = (uint8_t)encode_preset_no;
     if ((ret = SRLAEncoder_SetEncodeParameter(encoder, &parameter)) != SRLA_APIRESULT_OK) {
@@ -104,65 +116,11 @@ static int do_encode(const char *in_filename, const char *out_filename,
     /* エンコードデータ領域を作成 */
     buffer = (uint8_t *)malloc(buffer_size);
 
-    /* エンコード関数の選択 */
-    encode_function = (variable_block_num_divisions == 0) ? SRLAEncoder_EncodeBlock : SRLAEncoder_EncodeOptimalPartitionedBlock;
-
     /* エンコード実行 */
-    {
-        uint8_t *data_pos = buffer;
-        uint32_t write_offset, progress;
-        struct SRLAHeader header;
-
-        write_offset = 0;
-
-        /* ヘッダエンコード */
-        header.num_channels = (uint16_t)num_channels;
-        header.num_samples = num_samples;
-        header.sampling_rate = parameter.sampling_rate;
-        header.bits_per_sample = parameter.bits_per_sample;
-        header.preset = parameter.preset;
-        header.max_num_samples_per_block = parameter.max_num_samples_per_block;
-        if ((ret = SRLAEncoder_EncodeHeader(&header, data_pos, buffer_size))
-                != SRLA_APIRESULT_OK) {
-            fprintf(stderr, "Failed to encode header! ret:%d \n", ret);
-            return 1;
-        }
-        data_pos += SRLA_HEADER_SIZE;
-        write_offset += SRLA_HEADER_SIZE;
-
-        /* ブロックを時系列順にエンコード */
-        progress = 0;
-        while (progress < num_samples) {
-            uint32_t ch, write_size;
-            const int32_t *input_ptr[SRLA_MAX_NUM_CHANNELS];
-            /* エンコードサンプル数の確定 */
-            const uint32_t num_encode_samples = SRLACODEC_MIN(max_num_block_samples, num_samples - progress);
-
-            /* サンプル参照位置のセット */
-            for (ch = 0; ch < (uint32_t)num_channels; ch++) {
-                input_ptr[ch] = &(WAVFile_PCM(in_wav, progress, ch));
-            }
-
-            /* ブロックエンコード */
-            if ((ret = encode_function(encoder,
-                    input_ptr, num_encode_samples,
-                    data_pos, buffer_size - write_offset, &write_size)) != SRLA_APIRESULT_OK) {
-                fprintf(stderr, "Failed to encode! ret:%d \n", ret);
-                return 1;
-            }
-
-            /* 進捗更新 */
-            data_pos += write_size;
-            write_offset += write_size;
-            progress += num_encode_samples;
-
-            /* 進捗表示 */
-            printf("progress... %5.2f%% \r", (double)((progress * 100.0) / num_samples));
-            fflush(stdout);
-        }
-
-        /* 書き出しサイズ取得 */
-        encoded_data_size = write_offset;
+    if ((ret = SRLAEncoder_EncodeWhole(encoder,
+        in_wav->data, num_samples, buffer, buffer_size, &encoded_data_size, encode_block_callback)) != SRLA_APIRESULT_OK) {
+        fprintf(stderr, "Failed to encode data: %d \n", ret);
+        return 1;
     }
 
     /* ファイル書き出し */
@@ -339,6 +297,7 @@ int main(int argc, char** argv)
         uint32_t encode_preset_no = DEFALUT_PRESET_INDEX;
         uint32_t max_num_block_samples = DEFALUT_MAX_NUM_BLOCK_SAMPLES;
         uint32_t variable_block_num_divisions = DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS;
+        uint32_t LOOKAHEAD_SAMPLES_FACTOR = DEFALUT_LOOKAHEAD_SAMPLES_FACTOR;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
@@ -350,6 +309,20 @@ int main(int argc, char** argv)
             }
             if (encode_preset_no >= SRLA_NUM_PARAMETER_PRESETS) {
                 fprintf(stderr, "%s: encode preset number is out of range. \n", argv[0]);
+                return 1;
+            }
+        }
+        /* ブロックあたりサンプル数の取得 */
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "lookahead-sample-factor") == COMMAND_LINE_PARSER_TRUE) {
+            char* e;
+            const char* lstr = CommandLineParser_GetArgumentString(command_line_spec, "lookahead-sample-factor");
+            LOOKAHEAD_SAMPLES_FACTOR = (uint32_t)strtol(lstr, &e, 10);
+            if (*e != '\0') {
+                fprintf(stderr, "%s: invalid number of lookahead samples. (irregular character found in %s at %s)\n", argv[0], lstr, e);
+                return 1;
+            }
+            if ((LOOKAHEAD_SAMPLES_FACTOR == 0) || (LOOKAHEAD_SAMPLES_FACTOR >= (1U << 16))) {
+                fprintf(stderr, "%s: lookahead factor is out of range. \n", argv[0]);
                 return 1;
             }
         }
@@ -382,7 +355,8 @@ int main(int argc, char** argv)
             }
         }
         /* 一括エンコード実行 */
-        if (do_encode(input_file, output_file, encode_preset_no, max_num_block_samples, variable_block_num_divisions) != 0) {
+        if (do_encode(input_file, output_file,
+            encode_preset_no, max_num_block_samples, variable_block_num_divisions, LOOKAHEAD_SAMPLES_FACTOR) != 0) {
             fprintf(stderr, "%s: failed to encode %s. \n", argv[0], input_file);
             return 1;
         }

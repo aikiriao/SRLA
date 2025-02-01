@@ -26,6 +26,8 @@ struct SRLAEncoder {
     uint32_t max_num_channels; /* バッファチャンネル数 */
     uint32_t max_num_samples_per_block; /* バッファサンプル数 */
     uint32_t min_num_samples_per_block; /* 最小ブロックサンプル数 */
+    uint32_t max_num_lookahead_samples; /* 最大先読みサンプル数 */
+    uint32_t num_lookahead_samples; /* 先読みサンプル数 */
     uint32_t lb_num_samples_per_block; /* ブロックサンプル数の下限 */
     uint32_t max_num_parameters; /* 最大パラメータ数 */
     uint8_t set_parameter; /* パラメータセット済み？ */
@@ -296,7 +298,8 @@ static SRLAError SRLAOptimalBlockPartitionCalculator_ApplyDijkstraMethod(
 /* 最適なブロック分割の探索 */
 static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
     struct SRLAEncoder *encoder,
-    const int32_t *const *input, uint32_t num_samples, uint32_t min_num_block_samples,
+    const int32_t *const *input, uint32_t num_lookahead_samples,
+    uint32_t min_num_block_samples, uint32_t max_num_block_samples,
     uint32_t *optimal_num_partitions, uint32_t *optimal_block_partition)
 {
     uint32_t i, j, ch;
@@ -309,12 +312,17 @@ static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
         return SRLA_ERROR_INVALID_ARGUMENT;
     }
 
+    /* ブロックサイズのチェック */
+    if (min_num_block_samples > max_num_block_samples) {
+        return SRLA_ERROR_INVALID_ARGUMENT;
+    }
+
     /* オート変数に受ける */
     obpc = encoder->obpc;
     num_channels = encoder->header.num_channels;
 
     /* 隣接行列次元（ノード数）の計算 */
-    num_nodes = SRLAENCODER_CALCULATE_NUM_NODES(num_samples, min_num_block_samples);
+    num_nodes = SRLAENCODER_CALCULATE_NUM_NODES(num_lookahead_samples, min_num_block_samples);
 
     /* 最大ノード数を超えている */
     if (num_nodes > obpc->max_num_nodes) {
@@ -338,8 +346,13 @@ static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
             const uint32_t sample_offset = i * min_num_block_samples;
             uint32_t num_block_samples = (j - i) * min_num_block_samples;
 
+            /* 最大ブロックサイズ以上であれば計算スキップ */
+            if (num_block_samples > max_num_block_samples) {
+                continue;
+            }
+
             /* 端点で飛び出る場合があるので調節 */
-            num_block_samples = SRLAUTILITY_MIN(num_block_samples, num_samples - sample_offset);
+            num_block_samples = SRLAUTILITY_MIN(num_block_samples, num_lookahead_samples - sample_offset);
 
             /* データ参照位置を設定 */
             for (ch = 0; ch < num_channels; ch++) {
@@ -386,7 +399,7 @@ static SRLAError SRLAEncoder_SearchOptimalBlockPartitions(
     for (i = 0; i < tmp_optimal_num_partitions; i++) {
         const uint32_t sample_offset = obpc->path[tmp_node] * min_num_block_samples;
         uint32_t num_block_samples = (tmp_node - obpc->path[tmp_node]) * min_num_block_samples;
-        num_block_samples = SRLAUTILITY_MIN(num_block_samples, num_samples - sample_offset);
+        num_block_samples = SRLAUTILITY_MIN(num_block_samples, num_lookahead_samples - sample_offset);
 
         /* クリッピングしたブロックサンプル数をセット */
         optimal_block_partition[tmp_optimal_num_partitions - i - 1] = num_block_samples;
@@ -453,6 +466,7 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     /* コンフィグチェック */
     if ((config->max_num_samples_per_block == 0)
             || (config->min_num_samples_per_block == 0)
+            || (config->max_num_lookahead_samples == 0)
             || (config->max_num_channels == 0)) {
         return -1;
     }
@@ -463,6 +477,10 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     }
     /* ブロックサイズ下限が上限を越えている */
     if (config->min_num_samples_per_block > config->max_num_samples_per_block) {
+        return -1;
+    }
+    /* 最大先読みサンプル数が小さい */
+    if (config->max_num_lookahead_samples < config->max_num_samples_per_block) {
         return -1;
     }
 
@@ -488,7 +506,7 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
 
     /* 最適分割探索ハンドルのサイズ */
     if ((tmp_work_size = SRLAOptimalBlockPartitionCalculator_CalculateWorkSize(
-            config->max_num_samples_per_block, config->min_num_samples_per_block)) < 0) {
+            config->max_num_lookahead_samples, config->min_num_samples_per_block)) < 0) {
         return -1;
     }
     work_size += tmp_work_size;
@@ -582,6 +600,7 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     encoder->max_num_channels = config->max_num_channels;
     encoder->max_num_samples_per_block = config->max_num_samples_per_block;
     encoder->lb_num_samples_per_block = config->min_num_samples_per_block;
+    encoder->max_num_lookahead_samples = config->max_num_lookahead_samples;
     encoder->max_num_parameters = config->max_num_parameters;
 
     /* LPC計算ハンドルの作成 */
@@ -610,9 +629,9 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     {
         const int32_t obpc_size
             = SRLAOptimalBlockPartitionCalculator_CalculateWorkSize(
-            config->max_num_samples_per_block, config->min_num_samples_per_block);
+            config->max_num_lookahead_samples, config->min_num_samples_per_block);
         if ((encoder->obpc = SRLAOptimalBlockPartitionCalculator_Create(
-                config->max_num_samples_per_block, config->min_num_samples_per_block, work_ptr, obpc_size)) == NULL) {
+                config->max_num_lookahead_samples, config->min_num_samples_per_block, work_ptr, obpc_size)) == NULL) {
             return NULL;
         }
         work_ptr += obpc_size;
@@ -739,16 +758,25 @@ SRLAApiResult SRLAEncoder_SetEncodeParameter(
         return SRLA_APIRESULT_INVALID_FORMAT;
     }
 
+    /* ヘッダに入れない内容でパラメータチェック */
+    if ((parameter->min_num_samples_per_block > parameter->max_num_samples_per_block)
+        || (parameter->num_lookahead_samples < parameter->max_num_samples_per_block)
+        || ((parameter->num_lookahead_samples % parameter->min_num_samples_per_block) != 0)) {
+        return SRLA_APIRESULT_INVALID_FORMAT;
+    }
+
     /* エンコーダの容量を越えてないかチェック */
     if ((encoder->max_num_samples_per_block < parameter->max_num_samples_per_block)
         || (encoder->lb_num_samples_per_block > parameter->min_num_samples_per_block)
+        || (encoder->max_num_lookahead_samples < parameter->num_lookahead_samples)
         || (encoder->max_num_channels < parameter->num_channels)) {
         return SRLA_APIRESULT_INSUFFICIENT_BUFFER;
     }
     /* ブロックあたり最大サンプル数のセット */
     tmp_header.max_num_samples_per_block = parameter->max_num_samples_per_block;
-    /* ブロックあたり最小サンプル数を記録 */
+    /* ブロックあたり最小サンプル数・先読みサンプル数を記録 */
     encoder->min_num_samples_per_block = parameter->min_num_samples_per_block;
+    encoder->num_lookahead_samples = parameter->num_lookahead_samples;
 
     /* ヘッダ設定 */
     encoder->header = tmp_header;
@@ -1574,10 +1602,12 @@ SRLAApiResult SRLAEncoder_EncodeOptimalPartitionedBlock(
 
     /* 最適なブロック分割の探索 */
     if (SRLAEncoder_SearchOptimalBlockPartitions(
-        encoder, input, num_samples, encoder->min_num_samples_per_block,
+        encoder, input, num_samples,
+        encoder->min_num_samples_per_block, encoder->max_num_samples_per_block,
         &num_partitions, encoder->partitions_buffer) != SRLA_ERROR_OK) {
         return SRLA_APIRESULT_NG;
     }
+    SRLA_ASSERT(num_partitions > 0);
 
     /* 分割に従ってエンコード */
     progress = write_offset = 0;
@@ -1606,18 +1636,20 @@ SRLAApiResult SRLAEncoder_EncodeOptimalPartitionedBlock(
 
 /* ヘッダ含めファイル全体をエンコード */
 SRLAApiResult SRLAEncoder_EncodeWhole(
-        struct SRLAEncoder *encoder,
-        const int32_t *const *input, uint32_t num_samples,
-        uint8_t *data, uint32_t data_size, uint32_t *output_size, uint8_t variable_block)
+    struct SRLAEncoder *encoder,
+    const int32_t *const *input, uint32_t num_samples,
+    uint8_t *data, uint32_t data_size, uint32_t *output_size,
+    SRLAEncoder_EncodeBlockCallback encode_callback)
 {
     SRLAApiResult ret;
-    uint32_t progress, ch, write_size, write_offset, num_encode_samples;
+    uint32_t progress, ch, write_size, write_offset, num_encode_samples, num_process_samples;
     uint8_t *data_pos;
     const int32_t *input_ptr[SRLA_MAX_NUM_CHANNELS];
     const struct SRLAHeader *header;
-    SRLAApiResult (*encode_function)(struct SRLAEncoder *encoder,
-        const int32_t *const *input, uint32_t num_samples,
-        uint8_t *data, uint32_t data_size, uint32_t *output_size);
+    SRLAApiResult (*encode_function)(
+        struct SRLAEncoder* encoder,
+        const int32_t* const* input, uint32_t num_samples,
+        uint8_t * data, uint32_t data_size, uint32_t * output_size) = NULL;
 
     /* 引数チェック */
     if ((encoder == NULL) || (input == NULL)
@@ -1630,9 +1662,6 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
         return SRLA_APIRESULT_PARAMETER_NOT_SET;
     }
 
-    /* エンコード関数の選択 */
-    encode_function = (variable_block == 1) ? SRLAEncoder_EncodeOptimalPartitionedBlock : SRLAEncoder_EncodeBlock;
-
     /* 書き出し位置を取得 */
     data_pos = data;
 
@@ -1644,6 +1673,16 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
     }
     header = &(encoder->header);
 
+    /* エンコード関数と進捗サンプル数を決定 */
+    if (encoder->min_num_samples_per_block == encoder->max_num_samples_per_block) {
+        /* 最適なブロック分割を探索する必要がないため、SRLAEncoder_EncodeBlockを使用 */
+        encode_function = SRLAEncoder_EncodeBlock;
+        num_process_samples = encoder->max_num_samples_per_block;
+    } else {
+        encode_function = SRLAEncoder_EncodeOptimalPartitionedBlock;
+        num_process_samples = encoder->num_lookahead_samples;
+    }
+
     /* 進捗状況初期化 */
     progress = 0;
     write_offset = SRLA_HEADER_SIZE;
@@ -1653,7 +1692,7 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
     while (progress < num_samples) {
         /* エンコードサンプル数の確定 */
         num_encode_samples
-            = SRLAUTILITY_MIN(header->max_num_samples_per_block, num_samples - progress);
+            = SRLAUTILITY_MIN(num_process_samples, num_samples - progress);
 
         /* サンプル参照位置のセット */
         for (ch = 0; ch < header->num_channels; ch++) {
@@ -1662,8 +1701,8 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
 
         /* ブロックエンコード */
         if ((ret = encode_function(encoder,
-                input_ptr, num_encode_samples,
-                data_pos, data_size - write_offset, &write_size)) != SRLA_APIRESULT_OK) {
+            input_ptr, num_encode_samples,
+            data_pos, data_size - write_offset, &write_size)) != SRLA_APIRESULT_OK) {
             return ret;
         }
 
@@ -1672,6 +1711,11 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
         write_offset += write_size;
         progress += num_encode_samples;
         SRLA_ASSERT(write_offset <= data_size);
+
+        /* コールバック関数が登録されていれば実行 */
+        if (encode_callback != NULL) {
+            encode_callback(num_samples, progress, data_pos - write_size, write_size);
+        }
     }
 
     /* 成功終了 */
