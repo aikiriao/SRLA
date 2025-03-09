@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 /* デフォルトプリセット */
-#define DEFALUT_PRESET_INDEX 4
+#define DEFALUT_PRESET_INDEX 3
 /* デフォルトの最大ブロックサンプル数 */
 #define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
 /* デフォルトの先読みサンプル数倍率 */
@@ -17,7 +17,7 @@
 /* デフォルトの可変ブロック分割数 */
 #define DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS 1
 /* パラメータプリセットの最大インデックス */
-#define SRLA_MAX_PARAMETER_PRESETS_INDEX 6
+#define SRLA_MAX_PARAMETER_PRESETS_INDEX 5
 #if SRLA_MAX_PARAMETER_PRESETS_INDEX != (SRLA_NUM_PARAMETER_PRESETS - 1)
 #error "Max parameter presets mismatched to number of parameter presets!"
 #endif
