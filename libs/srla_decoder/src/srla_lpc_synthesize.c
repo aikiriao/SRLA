@@ -265,3 +265,32 @@ void SRLALPC_Synthesize(
     }
 }
 #endif
+
+void SRLALTP_Synthesize(
+    int32_t *data, uint32_t num_samples,
+    const int32_t *coef, uint32_t coef_order,
+    uint32_t pitch_period, uint32_t coef_rshift)
+{
+    uint32_t smpl, ord;
+    const int32_t half = 1 << (coef_rshift - 1); /* 固定小数の0.5 */
+    int32_t predict;
+    const uint32_t half_order = coef_order >> 1;
+    const int32_t *dalay_data = (const int32_t *)(data - (int32_t)(pitch_period + half_order));
+
+    /* 引数チェック */
+    SRLA_ASSERT(data != NULL);
+    SRLA_ASSERT(coef != NULL);
+
+    /* 予測次数/周期が0の時は何もしない */
+    if ((coef_order == 0) || (pitch_period == 0)) {
+        return;
+    }
+
+    for (smpl = pitch_period + half_order + 1; smpl < num_samples; smpl++) {
+        predict = half;
+        for (ord = 0; ord < coef_order; ord++) {
+            predict += (coef[ord] * dalay_data[smpl + ord]);
+        }
+        data[smpl] += (predict >> coef_rshift);
+    }
+}

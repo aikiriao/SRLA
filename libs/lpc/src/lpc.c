@@ -99,6 +99,11 @@ int32_t LPCCalculator_CalculateWorkSize(const struct LPCCalculatorConfig *config
         return -1;
     }
 
+    /* コンフィグチェック */
+    if (config->max_num_samples == 0) {
+        return -1;
+    }
+
     work_size = sizeof(struct LPCCalculator) + LPC_ALIGNMENT;
     /* a_vecで使用する領域 */
     work_size += (int32_t)(sizeof(double *) * (config->max_order + 1));
@@ -1476,6 +1481,7 @@ static LPCError LPCCalculator_DetectPitch(
 
     assert(auto_corr != NULL);
     assert(pitch_period != NULL);
+    assert(min_pitch_period < max_pitch_period);
 
     max_peak = 0.0;
     num_peak = 0;
@@ -1493,7 +1499,7 @@ static LPCError LPCCalculator_DetectPitch(
         }
 
         /* 探索終了のゼロクロス点を検索 */
-        for (end = start + 1; end < max_pitch_period; end++) {
+        for (end = start + 1; end < max_pitch_period - 1; end++) {
             if (auto_corr[end] * auto_corr[end + 1] < 0.0) {
                 break;
             }
@@ -1509,7 +1515,7 @@ static LPCError LPCCalculator_DetectPitch(
             if ((abs_auto_corr[1] > abs_auto_corr[0]) && (abs_auto_corr[1] > abs_auto_corr[2])) {
                 if (abs_auto_corr[1] > local_peak) {
                     local_peak_index = j;
-                    local_peak = auto_corr[j];
+                    local_peak = abs_auto_corr[1];
                 }
             }
             abs_auto_corr[0] = abs_auto_corr[1];
@@ -1590,7 +1596,7 @@ LPCApiResult LPCCalculator_CalculateLTPCoefficients(
     /* 自己相関を計算 */
     if (LPC_CalculateAutoCorrelationByFFT(
         lpcc->buffer, lpcc->work_buffer,
-        lpcc->max_num_buffer_samples, num_samples, lpcc->auto_corr, max_pitch_period) != LPC_ERROR_OK) {
+        lpcc->max_num_buffer_samples, num_samples, lpcc->auto_corr, max_pitch_period + 1) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 

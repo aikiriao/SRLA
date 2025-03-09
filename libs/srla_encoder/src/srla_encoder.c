@@ -34,24 +34,29 @@ struct SRLAEncoder {
     struct LPCCalculator *lpcc; /* LPC計算ハンドル */
     struct SRLAPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
     struct SRLAOptimalBlockPartitionCalculator *obpc; /* 最適ブロック分割計算ハンドル */
-    double **params_double; /* 各チャンネルのLPC係数(double) */
-    int32_t **params_int; /* 各チャンネルのLPC係数(int) */
-    uint32_t *coef_rshifts; /* 各チャンネルのLPC係数右シフト量 */
-    uint32_t *coef_order; /* 各チャンネルのLPC係数次数 */
+    /* TODO: パラメータの一時領域なので構造体化する */
+    double **lpc_coef_double; /* 各チャンネルのLPC係数(double) */
+    int32_t **lpc_coef_int; /* 各チャンネルのLPC係数(int) */
+    uint32_t *lpc_coef_rshift; /* 各チャンネルのLPC係数右シフト量 */
+    uint32_t *lpc_coef_order; /* 各チャンネルのLPC係数次数 */
     uint32_t *use_sum_coef; /* 各チャンネルでLPC係数を和をとって符号化しているか */
+    double **ltp_coef_double; /* 各チャンネルのLTP係数(double) */
+    int32_t **ltp_coef_int; /* 各チャンネルのLPC係数(int) */
+    uint32_t *ltp_period; /* 各チャンネルのLTP予測周期 */
     int32_t **buffer_int; /* 信号バッファ(int) */
     int32_t **residual; /* 残差信号 */
     int32_t **ms_buffer_int; /* MS信号バッファ */
     int32_t **ms_residual; /* MS残差信号 */
     struct SRLAPreemphasisFilter **ms_pre_emphasis; /* プリエンファシスフィルタ(MS) */
-    uint32_t *ms_coef_rshifts; /* LPC係数右シフト量(MS) */
-    uint32_t *ms_coef_order; /* LPC係数次数(MS) */
+    uint32_t *ms_lpc_coef_rshift; /* LPC係数右シフト量(MS) */
+    uint32_t *ms_lpc_lpc_coef_order; /* LPC係数次数(MS) */
     uint32_t *ms_use_sum_coef; /* LPC係数を和をとって符号化しているか(MS) */
-    int32_t **ms_params_int; /* LPC係数(MS) */
+    int32_t **ms_lpc_coef_int; /* LPC係数(MS) */
+    uint32_t *ms_ltp_period; /* LTP予測周期(MS) */
+    int32_t **ms_ltp_coef_int; /* LTP係数(MS) */
     double *buffer_double; /* 信号バッファ(double) */
     double *error_vars; /* 各予測係数の残差分散列 */
     double **multiple_lpc_coefs; /* 各次数の予測係数 */
-    double *ltp_coef; /* LTP係数 */
     uint32_t *partitions_buffer; /* 最適な分割設定の記録領域 */
     struct StaticHuffmanCodes param_codes; /* パラメータ符号化用Huffman符号 */
     struct StaticHuffmanCodes sum_param_codes; /* 和をとったパラメータ符号化用Huffman符号 */
@@ -535,6 +540,16 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
     /* MSチャンネルのLPC係数を和をとって符号化しているかのフラグ */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * 2);
+    /* LTP係数(int) */
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, SRLA_LTP_ORDER);
+    /* LTP係数(MS, int) */
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, 2, SRLA_LTP_ORDER);
+    /* LTP係数(double) */
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(double, config->max_num_channels, SRLA_LTP_ORDER);
+    /* 各チャンネルのLTP周期 */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
+    /* MSチャンネルのLTP周期 */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * 2);
     /* 信号処理バッファのサイズ */
     work_size += (int32_t)(2 * SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, config->max_num_samples_per_block));
     work_size += (int32_t)(config->max_num_samples_per_block * sizeof(double) + SRLA_MEMORY_ALIGNMENT);
@@ -596,6 +611,9 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     encoder = (struct SRLAEncoder *)work_ptr;
     work_ptr += sizeof(struct SRLAEncoder);
 
+    /* メンバを0クリア */
+    memset(encoder, 0, sizeof(struct SRLAEncoder));
+
     /* エンコーダメンバ設定 */
     encoder->set_parameter = 0;
     encoder->alloced_by_own = tmp_alloc_by_own;
@@ -649,29 +667,29 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
 
     /* バッファ領域の確保 全てのポインタをアラインメント */
     /* LPC係数(int) */
-    SRLA_ALLOCATE_2DIMARRAY(encoder->params_int,
+    SRLA_ALLOCATE_2DIMARRAY(encoder->lpc_coef_int,
         work_ptr, int32_t, config->max_num_channels, config->max_num_parameters);
     /* LPC係数(MS, int) */
-    SRLA_ALLOCATE_2DIMARRAY(encoder->ms_params_int,
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ms_lpc_coef_int,
         work_ptr, int32_t, 2, config->max_num_parameters);
     /* LPC係数(double) */
-    SRLA_ALLOCATE_2DIMARRAY(encoder->params_double,
+    SRLA_ALLOCATE_2DIMARRAY(encoder->lpc_coef_double,
         work_ptr, double, config->max_num_channels, config->max_num_parameters);
     /* LPC係数右シフト量 */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
-    encoder->coef_rshifts = (uint32_t *)work_ptr;
+    encoder->lpc_coef_rshift = (uint32_t *)work_ptr;
     work_ptr += config->max_num_channels * sizeof(uint32_t);
     /* LPC係数右シフト量(MS) */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
-    encoder->ms_coef_rshifts = (uint32_t *)work_ptr;
+    encoder->ms_lpc_coef_rshift = (uint32_t *)work_ptr;
     work_ptr += 2 * sizeof(uint32_t);
     /* LPC係数次数 */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
-    encoder->coef_order = (uint32_t *)work_ptr;
+    encoder->lpc_coef_order = (uint32_t *)work_ptr;
     work_ptr += config->max_num_channels * sizeof(uint32_t);
     /* LPC係数次数(MS) */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
-    encoder->ms_coef_order = (uint32_t *)work_ptr;
+    encoder->ms_lpc_lpc_coef_order = (uint32_t *)work_ptr;
     work_ptr += 2 * sizeof(uint32_t);
     /* LPC係数を和をとって符号化しているかのフラグ */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
@@ -680,6 +698,23 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     /* LPC係数を和をとって符号化しているかのフラグ(MS) */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
     encoder->ms_use_sum_coef = (uint32_t *)work_ptr;
+    work_ptr += 2 * sizeof(uint32_t);
+    /* LTP係数(int) */
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ltp_coef_int,
+        work_ptr, int32_t, config->max_num_channels, SRLA_LTP_ORDER);
+    /* LTP係数(MS, int) */
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ms_ltp_coef_int,
+        work_ptr, int32_t, 2, SRLA_LTP_ORDER);
+    /* LTP係数(double) */
+    SRLA_ALLOCATE_2DIMARRAY(encoder->ltp_coef_double,
+        work_ptr, double, config->max_num_channels, SRLA_LTP_ORDER);
+    /* LTP周期 */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    encoder->ltp_period = (uint32_t *)work_ptr;
+    work_ptr += config->max_num_channels * sizeof(uint32_t);
+    /* LTP周期(MS) */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    encoder->ms_ltp_period = (uint32_t *)work_ptr;
     work_ptr += 2 * sizeof(uint32_t);
 
     /* 信号処理用バッファ領域 */
@@ -702,11 +737,6 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
     /* 全次数のLPC係数 */
     SRLA_ALLOCATE_2DIMARRAY(encoder->multiple_lpc_coefs,
         work_ptr, double, config->max_num_parameters, config->max_num_parameters);
-
-    /* LTP係数 */
-    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
-    encoder->ltp_coef = (double *)work_ptr;
-    work_ptr += SRLA_LTP_ORDER * sizeof(double);
 
     /* doubleバッファ */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
@@ -925,17 +955,17 @@ static double SRLAEncoder_CalculateGeometricDistributionEntropy(double mean_abs_
 static SRLAError SRLAEncoder_SelectBestLPCOrder(
     const struct SRLAHeader *header, SRLAChannelLPCOrderDecisionTactics tactics,
     const double *input, uint32_t num_samples, const double **coefs, const double *error_vars,
-    uint32_t max_coef_order, uint32_t *best_coef_order)
+    uint32_t max_lpc_coef_order, uint32_t *best_lpc_coef_order)
 {
     SRLA_ASSERT(input != NULL);
     SRLA_ASSERT(coefs != NULL);
     SRLA_ASSERT(error_vars != NULL);
-    SRLA_ASSERT(best_coef_order != NULL);
+    SRLA_ASSERT(best_lpc_coef_order != NULL);
 
     switch (tactics) {
     case SRLA_LPC_ORDER_DECISION_TACTICS_MAX_FIXED:
         /* 最大次数を常に選択 */
-        (*best_coef_order) = max_coef_order;
+        (*best_lpc_coef_order) = max_lpc_coef_order;
         return SRLA_ERROR_OK;
     case SRLA_LPC_ORDER_DECISION_TACTICS_BRUTEFORCE_SEARCH:
         /* 網羅探索 */
@@ -944,7 +974,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
         uint32_t i, order, smpl, tmp_best_order = 0;
 
         minlen = FLT_MAX;
-        for (order = 1; order <= max_coef_order; order++) {
+        for (order = 1; order <= max_lpc_coef_order; order++) {
             const double *coef = coefs[order - 1];
             mabse = 0.0;
             for (smpl = order; smpl < num_samples; smpl++) {
@@ -965,7 +995,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
         }
         /* 結果を設定 */
         SRLA_ASSERT(tmp_best_order != 0);
-        (*best_coef_order) = tmp_best_order;
+        (*best_lpc_coef_order) = tmp_best_order;
         return SRLA_ERROR_OK;
     }
     case SRLA_LPC_ORDER_DECISION_TACTICS_BRUTEFORCE_ESTIMATION:
@@ -974,7 +1004,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
         uint32_t order, tmp_best_order = 0;
         double len, mabse, minlen = FLT_MAX;
 
-        for (order = 1; order <= max_coef_order; order++) {
+        for (order = 1; order <= max_lpc_coef_order; order++) {
             /* Laplace分布の仮定で残差分散から平均絶対値を推定 */
             mabse = 2.0 * sqrt(error_vars[order] / 2.0); /* 符号化で非負整数化するため2倍 */
             /* 残差符号のサイズ */
@@ -989,7 +1019,7 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
 
         /* 結果を設定 */
         SRLA_ASSERT(tmp_best_order != 0);
-        (*best_coef_order) = tmp_best_order;
+        (*best_lpc_coef_order) = tmp_best_order;
         return SRLA_ERROR_OK;
     }
     default:
@@ -999,12 +1029,12 @@ static SRLAError SRLAEncoder_SelectBestLPCOrder(
     return SRLA_ERROR_NG;
 }
 
-/* 1チャンネルのパラメータ・符号長計算 */
+/* 1チャンネルのパラメータ・符号長計算 TODO: パラメータ構造体にまとめる */
 static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     struct SRLAEncoder *encoder,
     int32_t *buffer_int, double *buffer_double, int32_t *residual_int, uint32_t num_samples,
-    struct SRLAPreemphasisFilter *pre_emphasis_filters, uint32_t *coef_order, uint32_t *coef_rshift,
-    int32_t *int_coef, uint32_t *use_sum_coef, uint32_t *code_length)
+    struct SRLAPreemphasisFilter *pre_emphasis_filters, uint32_t *lpc_coef_order, uint32_t *coef_rshift,
+    int32_t *lpc_int_coef, uint32_t *use_sum_coef, int32_t *ltp_int_coef, uint32_t *ltp_period, uint32_t *code_length)
 {
     uint32_t smpl, p;
     LPCApiResult ret;
@@ -1012,19 +1042,20 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     const struct SRLAHeader *header;
     const struct SRLAParameterPreset *parameter_preset;
     struct SRLAPreemphasisFilter tmp_pre_emphasis_filters[SRLA_NUM_PREEMPHASIS_FILTERS] = { { 0, } };
-    uint32_t tmp_coef_order;
-    uint32_t tmp_coef_rshift;
+    uint32_t tmp_lpc_lpc_coef_order;
+    uint32_t tmp_lpc_coef_rshift;
     double *double_coef;
-    int32_t tmp_int_coef[SRLA_MAX_COEFFICIENT_ORDER] = { 0, };
+    int32_t tmp_lpc_coef_int[SRLA_MAX_COEFFICIENT_ORDER] = { 0, };
     uint32_t tmp_use_sum_coef;
     uint32_t tmp_code_length;
-    int32_t tmp_pitch_period;
-    int32_t tmp_pitch_int_coef[SRLA_LTP_ORDER] = { 0, };
+    int32_t tmp_ltp_period;
+    double tmp_ltp_coef_double[SRLA_LTP_ORDER] = { 0.0, };
+    int32_t tmp_ltp_coef_int[SRLA_LTP_ORDER] = { 0, };
 
     /* 引数チェック */
     if ((encoder == NULL) || (buffer_int == NULL) || (buffer_double == NULL) || (residual_int == NULL)
-        || (pre_emphasis_filters == NULL) || (coef_order == NULL) || (coef_rshift == NULL) || (int_coef == NULL)
-        || (use_sum_coef == NULL) || (code_length == NULL)) {
+        || (pre_emphasis_filters == NULL) || (lpc_coef_order == NULL) || (coef_rshift == NULL) || (lpc_int_coef == NULL)
+        || (ltp_int_coef == NULL) || (use_sum_coef == NULL) || (code_length == NULL)) {
         return SRLA_ERROR_INVALID_ARGUMENT;
     }
 
@@ -1056,29 +1087,30 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     if ((ret = LPCCalculator_CalculateLTPCoefficients(encoder->lpcc,
         buffer_double, num_samples,
         SRLA_LTP_MIN_PERIOD, SRLA_LTP_MAX_PERIOD,
-        encoder->ltp_coef, SRLA_LTP_ORDER, &tmp_pitch_period,
+        tmp_ltp_coef_double, SRLA_LTP_ORDER, &tmp_ltp_period,
         LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER)) != LPC_APIRESULT_OK) {
         if (ret == LPT_APIRESULT_FAILED_TO_FIND_PITCH) {
             /* ピッチ成分を見つけられなかった */
-            tmp_pitch_period = 0;
+            tmp_ltp_period = 0;
         } else {
             return SRLA_ERROR_NG;
         }
     }
 
-    /* ピッチ成分を認めた場合 */
-    if (tmp_pitch_period > 0) {
+    /* ピッチ成分がある場合は係数を量子化・残差計算 */
+    if (tmp_ltp_period > 0) {
         const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         for (p = 0; p < SRLA_LTP_ORDER; p++) {
             /* 安定条件を満たすために1.0未満であることは確定 */
-            assert(fabs(encoder->ltp_coef[p]) < 1.0);
-            const double rshift_coef = encoder->ltp_coef[p] * pow(2.0, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
-            tmp_pitch_int_coef[p] = (int32_t)SRLAUtility_Round(rshift_coef);
+            assert(fabs(tmp_ltp_coef_double[p]) < 1.0);
+            /* 整数に丸め込む */
+            const double shift_coef = tmp_ltp_coef_double[p] * pow(2.0, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
+            tmp_ltp_coef_int[p] = (int32_t)SRLAUtility_Round(shift_coef);
         }
         /* LTPによる予測 残差を差し替え */
         SRLALTP_Predict(
-            buffer_int, num_samples, tmp_pitch_int_coef, SRLA_LTP_ORDER,
-            tmp_pitch_period, residual_int, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
+            buffer_int, num_samples, tmp_ltp_coef_int, SRLA_LTP_ORDER,
+            tmp_ltp_period, residual_int, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
         memcpy(buffer_int, residual_int, sizeof(int32_t) * num_samples);
         for (smpl = 0; smpl < num_samples; smpl++) {
             buffer_double[smpl] = buffer_int[smpl] * norm_const;
@@ -1097,46 +1129,46 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     if ((err = SRLAEncoder_SelectBestLPCOrder(header,
         parameter_preset->lpc_order_tactics,
         buffer_double, num_samples, (const double **)encoder->multiple_lpc_coefs, encoder->error_vars,
-        parameter_preset->max_num_parameters, &tmp_coef_order)) != SRLA_ERROR_OK) {
+        parameter_preset->max_num_parameters, &tmp_lpc_lpc_coef_order)) != SRLA_ERROR_OK) {
         return err;
     }
 
     /* 係数計算・残差計算 */
-    if (tmp_coef_order > 0) {
+    if (tmp_lpc_lpc_coef_order > 0) {
         /* 最良の次数をパラメータに設定 */
-        double_coef = encoder->multiple_lpc_coefs[tmp_coef_order - 1];
+        double_coef = encoder->multiple_lpc_coefs[tmp_lpc_lpc_coef_order - 1];
 
         /* SVRによるLPC係数計算 */
         if ((ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
             buffer_double, num_samples,
-            double_coef, tmp_coef_order, parameter_preset->svr_max_num_iterations,
+            double_coef, tmp_lpc_lpc_coef_order, parameter_preset->svr_max_num_iterations,
             LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER,
             parameter_preset->margin_list, parameter_preset->margin_list_size)) != LPC_APIRESULT_OK) {
             return SRLA_ERROR_NG;
         }
 
         /* LPC係数量子化 */
-        if ((ret = LPC_QuantizeCoefficients(double_coef, tmp_coef_order,
+        if ((ret = LPC_QuantizeCoefficients(double_coef, tmp_lpc_lpc_coef_order,
             SRLA_LPC_COEFFICIENT_BITWIDTH, (1 << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH),
-            tmp_int_coef, &tmp_coef_rshift)) != LPC_APIRESULT_OK) {
+            tmp_lpc_coef_int, &tmp_lpc_coef_rshift)) != LPC_APIRESULT_OK) {
             return SRLA_ERROR_NG;
         }
 
         /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
-        for (p = 0; p < tmp_coef_order / 2; p++) {
-            int32_t tmp = tmp_int_coef[p];
-            tmp_int_coef[p] = tmp_int_coef[tmp_coef_order - p - 1];
-            tmp_int_coef[tmp_coef_order - p - 1] = tmp;
+        for (p = 0; p < tmp_lpc_lpc_coef_order / 2; p++) {
+            const int32_t tmp = tmp_lpc_coef_int[p];
+            tmp_lpc_coef_int[p] = tmp_lpc_coef_int[tmp_lpc_lpc_coef_order - p - 1];
+            tmp_lpc_coef_int[tmp_lpc_lpc_coef_order - p - 1] = tmp;
         }
 
         /* LPC予測 */
         SRLALPC_Predict(buffer_int,
-            num_samples, tmp_int_coef, tmp_coef_order, residual_int, tmp_coef_rshift);
+            num_samples, tmp_lpc_coef_int, tmp_lpc_lpc_coef_order, residual_int, tmp_lpc_coef_rshift);
     } else {
         /* 次数が0の時は計算をスキップし、入力を単純コピー */
         memcpy(residual_int, buffer_int, sizeof(int32_t) * num_samples);
         /* 右シフトも0とする */
-        tmp_coef_rshift = 0;
+        tmp_lpc_coef_rshift = 0;
     }
 
     /* 符号長計算 */
@@ -1159,12 +1191,12 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     tmp_code_length += 1;
 
     /* LPC係数領域サイズ計算 */
-    if (tmp_coef_order > 0) {
+    if (tmp_lpc_lpc_coef_order > 0) {
         uint32_t coef_code_length = 0, summed_coef_code_length;
 
         /* 和をとらない形式で符号長計算 */
-        for (p = 0; p < tmp_coef_order; p++) {
-            const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(tmp_int_coef[p]);
+        for (p = 0; p < tmp_lpc_lpc_coef_order; p++) {
+            const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(tmp_lpc_coef_int[p]);
             SRLA_ASSERT(uval < STATICHUFFMAN_MAX_NUM_SYMBOLS);
             coef_code_length += encoder->param_codes.codes[uval].bit_count;
         }
@@ -1172,9 +1204,9 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         /* 和をとって符号長計算 */
         tmp_use_sum_coef = 1;
         summed_coef_code_length
-            = encoder->param_codes.codes[SRLAUTILITY_SINT32_TO_UINT32(tmp_int_coef[0])].bit_count;
-        for (p = 1; p < tmp_coef_order; p++) {
-            const int32_t summed = tmp_int_coef[p] + tmp_int_coef[p - 1];
+            = encoder->param_codes.codes[SRLAUTILITY_SINT32_TO_UINT32(tmp_lpc_coef_int[0])].bit_count;
+        for (p = 1; p < tmp_lpc_lpc_coef_order; p++) {
+            const int32_t summed = tmp_lpc_coef_int[p] + tmp_lpc_coef_int[p - 1];
             const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(summed);
             if (uval >= STATICHUFFMAN_MAX_NUM_SYMBOLS) {
                 tmp_use_sum_coef = 0;
@@ -1194,13 +1226,27 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         tmp_use_sum_coef = 0;
     }
 
+    /* LTP予測周期 */
+    tmp_code_length += SRLA_LTP_PERIOD_BITWIDTH;
+
+    /* LTP係数領域サイズ計算 */
+    if (tmp_ltp_period > 0) {
+        tmp_code_length += SRLA_LTP_ORDER * SRLA_LTP_COEFFICIENT_BITWIDTH;
+    }
+
     /* 結果の出力 */
     memcpy(pre_emphasis_filters, tmp_pre_emphasis_filters,
         sizeof(struct SRLAPreemphasisFilter) * SRLA_NUM_PREEMPHASIS_FILTERS);
-    (*coef_order) = tmp_coef_order;
-    (*coef_rshift) = tmp_coef_rshift;
-    memcpy(int_coef, tmp_int_coef, sizeof(int32_t) * tmp_coef_order);
+    (*lpc_coef_order) = tmp_lpc_lpc_coef_order;
+    (*coef_rshift) = tmp_lpc_coef_rshift;
+    if (tmp_lpc_lpc_coef_order > 0) {
+        memcpy(lpc_int_coef, tmp_lpc_coef_int, sizeof(int32_t) * tmp_lpc_lpc_coef_order);
+    }
     (*use_sum_coef) = tmp_use_sum_coef;
+    if (tmp_ltp_period > 0) {
+        memcpy(ltp_int_coef, tmp_ltp_coef_int, sizeof(int32_t) * SRLA_LTP_ORDER);
+    }
+    (*ltp_period) = tmp_ltp_period;
     (*code_length) = tmp_code_length;
 
     return SRLA_ERROR_OK;
@@ -1247,8 +1293,10 @@ static SRLAApiResult SRLAEncoder_ComputeCoefficients(
             SRLAError err;
             if ((err = SRLAEncoder_ComputeCoefficientsPerChannel(encoder,
                 encoder->ms_buffer_int[ch], encoder->buffer_double, encoder->ms_residual[ch], num_samples,
-                encoder->ms_pre_emphasis[ch], &encoder->ms_coef_order[ch], &encoder->ms_coef_rshifts[ch],
-                encoder->ms_params_int[ch], &encoder->ms_use_sum_coef[ch], &ms_code_length[ch])) != SRLA_ERROR_OK) {
+                encoder->ms_pre_emphasis[ch], &encoder->ms_lpc_lpc_coef_order[ch], &encoder->ms_lpc_coef_rshift[ch],
+                encoder->ms_lpc_coef_int[ch], &encoder->ms_use_sum_coef[ch],
+                encoder->ms_ltp_coef_int[ch], &encoder->ms_ltp_period[ch],
+                &ms_code_length[ch])) != SRLA_ERROR_OK) {
                 return SRLA_APIRESULT_NG;
             }
         }
@@ -1258,8 +1306,10 @@ static SRLAApiResult SRLAEncoder_ComputeCoefficients(
         SRLAError err;
         if ((err = SRLAEncoder_ComputeCoefficientsPerChannel(encoder,
             encoder->buffer_int[ch], encoder->buffer_double, encoder->residual[ch], num_samples,
-            encoder->pre_emphasis[ch], &encoder->coef_order[ch], &encoder->coef_rshifts[ch],
-            encoder->params_int[ch], &encoder->use_sum_coef[ch], &code_length[ch])) != SRLA_ERROR_OK) {
+            encoder->pre_emphasis[ch], &encoder->lpc_coef_order[ch], &encoder->lpc_coef_rshift[ch],
+            encoder->lpc_coef_int[ch], &encoder->use_sum_coef[ch],
+            encoder->ltp_coef_int[ch], &encoder->ltp_period[ch],
+            &code_length[ch])) != SRLA_ERROR_OK) {
             return SRLA_APIRESULT_NG;
         }
     }
@@ -1298,11 +1348,13 @@ static SRLAApiResult SRLAEncoder_ComputeCoefficients(
             for (ch = 0; ch < 2; ch++) {
                 memcpy(encoder->pre_emphasis[ch], encoder->ms_pre_emphasis[ch],
                     sizeof(struct SRLAPreemphasisFilter) * SRLA_NUM_PREEMPHASIS_FILTERS);
-                encoder->coef_order[ch] = encoder->ms_coef_order[ch];
-                encoder->coef_rshifts[ch] = encoder->ms_coef_rshifts[ch];
-                memcpy(encoder->params_int[ch], encoder->ms_params_int[ch],
-                    sizeof(int32_t) * encoder->ms_coef_order[ch]);
+                encoder->lpc_coef_order[ch] = encoder->ms_lpc_lpc_coef_order[ch];
+                encoder->lpc_coef_rshift[ch] = encoder->ms_lpc_coef_rshift[ch];
+                memcpy(encoder->lpc_coef_int[ch], encoder->ms_lpc_coef_int[ch],
+                    sizeof(int32_t) * encoder->ms_lpc_lpc_coef_order[ch]);
                 encoder->use_sum_coef[ch] = encoder->ms_use_sum_coef[ch];
+                memcpy(encoder->ltp_coef_int[ch], encoder->ms_ltp_coef_int[ch], sizeof(int32_t) * SRLA_LTP_ORDER);
+                encoder->ltp_period[ch] = encoder->ms_ltp_period[ch];
                 tmpp = encoder->residual[ch];
                 encoder->residual[ch] = encoder->ms_residual[ch];
                 encoder->ms_residual[ch] = tmpp;
@@ -1313,11 +1365,13 @@ static SRLAApiResult SRLAEncoder_ComputeCoefficients(
             const uint32_t dst_ch = (tmp_ch_process_method == SRLA_CH_PROCESS_METHOD_LS) ? 1 : 0;
             memcpy(encoder->pre_emphasis[dst_ch], encoder->ms_pre_emphasis[src_ch],
                 sizeof(struct SRLAPreemphasisFilter) * SRLA_NUM_PREEMPHASIS_FILTERS);
-            encoder->coef_order[dst_ch] = encoder->ms_coef_order[src_ch];
-            encoder->coef_rshifts[dst_ch] = encoder->ms_coef_rshifts[src_ch];
-            memcpy(encoder->params_int[dst_ch], encoder->ms_params_int[src_ch],
-                sizeof(int32_t) * encoder->ms_coef_order[src_ch]);
+            encoder->lpc_coef_order[dst_ch] = encoder->ms_lpc_lpc_coef_order[src_ch];
+            encoder->lpc_coef_rshift[dst_ch] = encoder->ms_lpc_coef_rshift[src_ch];
+            memcpy(encoder->lpc_coef_int[dst_ch], encoder->ms_lpc_coef_int[src_ch],
+                sizeof(int32_t) * encoder->ms_lpc_lpc_coef_order[src_ch]);
             encoder->use_sum_coef[dst_ch] = encoder->ms_use_sum_coef[src_ch];
+            memcpy(encoder->ltp_coef_int[dst_ch], encoder->ms_ltp_coef_int[src_ch], sizeof(int32_t) * SRLA_LTP_ORDER);
+            encoder->ltp_period[dst_ch] = encoder->ms_ltp_period[src_ch];
             tmpp = encoder->residual[dst_ch];
             encoder->residual[dst_ch] = encoder->ms_residual[src_ch];
             encoder->ms_residual[src_ch] = tmpp;
@@ -1391,28 +1445,42 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
     for (ch = 0; ch < header->num_channels; ch++) {
         uint32_t i, uval;
         /* LPC係数次数 */
-        SRLA_ASSERT(encoder->coef_order[ch] < (1U << SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH));
-        BitWriter_PutBits(&writer, encoder->coef_order[ch], SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
+        SRLA_ASSERT(encoder->lpc_coef_order[ch] < (1U << SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH));
+        BitWriter_PutBits(&writer, encoder->lpc_coef_order[ch], SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH);
         /* LPC係数右シフト量 */
-        SRLA_ASSERT(encoder->coef_rshifts[ch] < (1U << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
-        BitWriter_PutBits(&writer, encoder->coef_rshifts[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
+        SRLA_ASSERT(encoder->lpc_coef_rshift[ch] < (1U << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
+        BitWriter_PutBits(&writer, encoder->lpc_coef_rshift[ch], SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
         /* LPC係数 */
         BitWriter_PutBits(&writer, encoder->use_sum_coef[ch], 1); /* 和をとって記録したかのフラグ */
         if (!encoder->use_sum_coef[ch]) {
-            for (i = 0; i < encoder->coef_order[ch]; i++) {
-                uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][i]);
+            for (i = 0; i < encoder->lpc_coef_order[ch]; i++) {
+                uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->lpc_coef_int[ch][i]);
                 SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
                 StaticHuffman_PutCode(&encoder->param_codes, &writer, uval);
             }
         } else {
-            uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][0]);
+            uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->lpc_coef_int[ch][0]);
             SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
             StaticHuffman_PutCode(&encoder->param_codes, &writer, uval);
-            for (i = 1; i < encoder->coef_order[ch]; i++) {
-                const int32_t summed = encoder->params_int[ch][i] + encoder->params_int[ch][i - 1];
+            for (i = 1; i < encoder->lpc_coef_order[ch]; i++) {
+                const int32_t summed = encoder->lpc_coef_int[ch][i] + encoder->lpc_coef_int[ch][i - 1];
                 uval = SRLAUTILITY_SINT32_TO_UINT32(summed);
                 SRLA_ASSERT(uval < (1U << SRLA_LPC_COEFFICIENT_BITWIDTH));
                 StaticHuffman_PutCode(&encoder->sum_param_codes, &writer, uval);
+            }
+        }
+    }
+
+    /* LTP周期/LTP係数 */
+    for (ch = 0; ch < header->num_channels; ch++) {
+        SRLA_ASSERT(encoder->ltp_period[ch] < (1U << SRLA_LTP_PERIOD_BITWIDTH));
+        BitWriter_PutBits(&writer, encoder->ltp_period[ch], SRLA_LTP_PERIOD_BITWIDTH);
+        if (encoder->ltp_period[ch] > 0) {
+            uint32_t i;
+            for (i = 0; i < SRLA_LTP_ORDER; i++) {
+                const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->ltp_coef_int[ch][i]);
+                SRLA_ASSERT(uval < (1U << SRLA_LTP_COEFFICIENT_BITWIDTH));
+                BitWriter_PutBits(&writer, uval, SRLA_LTP_COEFFICIENT_BITWIDTH);
             }
         }
     }

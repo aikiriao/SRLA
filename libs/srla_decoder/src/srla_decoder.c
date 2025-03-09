@@ -27,9 +27,11 @@ struct SRLADecoder {
     uint32_t max_num_channels; /* デコード可能な最大チャンネル数 */
     uint32_t max_num_parameters; /* 最大パラメータ数 */
     struct SRLAPreemphasisFilter **de_emphasis; /* デエンファシスフィルタ */
-    int32_t **params_int; /* 各チャンネルのLPC係数(int) */
+    int32_t **lpc_coef; /* 各チャンネルのLPC係数(int) */
     uint32_t *rshifts; /* 各チャンネルのLPC係数右シフト量 */
     uint32_t *coef_order; /* 各チャンネルのLPC係数次数 */
+    int32_t **ltp_coef; /* 各チャンネルのLTP係数(int) */
+    uint32_t *ltp_period; /* 各チャンネルのLTP周期 */
     const struct StaticHuffmanTree* param_tree; /* 係数のハフマン木 */
     const struct StaticHuffmanTree* sum_param_tree; /* 和を取った係数のハフマン木 */
     const struct SRLAParameterPreset *parameter_preset; /* パラメータプリセット */
@@ -197,6 +199,10 @@ int32_t SRLADecoder_CalculateWorkSize(const struct SRLADecoderConfig *config)
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
     /* 各チャンネルのLPC係数次数 */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
+    /* LTP係数(int) */
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, SRLA_LTP_ORDER);
+    /* LTP周期 */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
 
     return work_size;
 }
@@ -255,15 +261,22 @@ struct SRLADecoder *SRLADecoder_Create(const struct SRLADecoderConfig *config, v
 
     /* バッファ領域の確保 全てのポインタをアラインメント */
     /* LPC係数(int) */
-    SRLA_ALLOCATE_2DIMARRAY(decoder->params_int,
+    SRLA_ALLOCATE_2DIMARRAY(decoder->lpc_coef,
             work_ptr, int32_t, config->max_num_channels, config->max_num_parameters);
-    /* 各層のLPC係数右シフト量 */
+    /* 各チャンネルのLPC係数右シフト量 */
     work_ptr = (uint8_t*)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
     decoder->rshifts = (uint32_t*)work_ptr;
     work_ptr += config->max_num_channels * sizeof(uint32_t);
-    /* 各層のLPC係数次数 */
+    /* 各チャンネルのLPC係数次数 */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
     decoder->coef_order = (uint32_t *)work_ptr;
+    work_ptr += config->max_num_channels * sizeof(uint32_t);
+    /* LTP係数(int) */
+    SRLA_ALLOCATE_2DIMARRAY(decoder->ltp_coef,
+        work_ptr, int32_t, config->max_num_channels, SRLA_LTP_ORDER);
+    /* LTP周期 */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    decoder->ltp_period = (uint32_t *)work_ptr;
     work_ptr += config->max_num_channels * sizeof(uint32_t);
 
     /* バッファオーバーランチェック */
@@ -469,16 +482,28 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         if (!use_sum_coef) {
             for (i = 0; i < decoder->coef_order[ch]; i++) {
                 uval = StaticHuffman_GetCode(decoder->param_tree, &reader);
-                decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
+                decoder->lpc_coef[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
             }
         } else {
             uval = StaticHuffman_GetCode(decoder->param_tree, &reader);
-            decoder->params_int[ch][0] = SRLAUTILITY_UINT32_TO_SINT32(uval);
+            decoder->lpc_coef[ch][0] = SRLAUTILITY_UINT32_TO_SINT32(uval);
             for (i = 1; i < decoder->coef_order[ch]; i++) {
                 uval = StaticHuffman_GetCode(decoder->sum_param_tree, &reader);
-                decoder->params_int[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
+                decoder->lpc_coef[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
                 /* 差をとって元に戻す */
-                decoder->params_int[ch][i] -= decoder->params_int[ch][i - 1];
+                decoder->lpc_coef[ch][i] -= decoder->lpc_coef[ch][i - 1];
+            }
+        }
+    }
+    /* LTP周期/LTP係数 */
+    for (ch = 0; ch < num_channels; ch++) {
+        /* LTP周期 */
+        BitReader_GetBits(&reader, &decoder->ltp_period[ch], SRLA_LTP_PERIOD_BITWIDTH);
+        if (decoder->ltp_period[ch] > 0) {
+            uint32_t i, uval;
+            for (i = 0; i < SRLA_LTP_ORDER; i++) {
+                BitReader_GetBits(&reader, &uval, SRLA_LTP_COEFFICIENT_BITWIDTH);
+                decoder->ltp_coef[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
             }
         }
     }
@@ -501,7 +526,11 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
     for (ch = 0; ch < header->num_channels; ch++) {
         /* LPC合成 */
         SRLALPC_Synthesize(buffer[ch],
-            num_decode_samples, decoder->params_int[ch], decoder->coef_order[ch], decoder->rshifts[ch]);
+            num_decode_samples, decoder->lpc_coef[ch], decoder->coef_order[ch], decoder->rshifts[ch]);
+        /* LTP合成 */
+        SRLALTP_Synthesize(buffer[ch],
+            num_decode_samples, decoder->ltp_coef[ch], SRLA_LTP_ORDER,
+            decoder->ltp_period[ch], SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
         /* デエンファシス */
         SRLAPreemphasisFilter_MultiStageDeemphasis(
             decoder->de_emphasis[ch], SRLA_NUM_PREEMPHASIS_FILTERS, buffer[ch], num_decode_samples);

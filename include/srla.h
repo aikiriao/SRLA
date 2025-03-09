@@ -19,7 +19,7 @@
 #define SRLA_MAX_COEFFICIENT_ORDER  255
 
 /* パラメータプリセット数 */
-#define SRLA_NUM_PARAMETER_PRESETS  7
+#define SRLA_NUM_PARAMETER_PRESETS  6
 
 
 /* API結果型 */
