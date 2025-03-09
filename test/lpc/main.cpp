@@ -216,6 +216,56 @@ TEST(LPCCalculatorTest, LPC_ConvertLPCandPARCORTest)
     }
 }
 
+/* 指定された周期の正弦波を生成 */
+static void LPCCalculatorTest_GenerateSin(double *data, uint32_t num_samples, uint32_t pitch_period)
+{
+    uint32_t smpl;
+    assert(num_samples > pitch_period);
+    assert(pitch_period > 1);
+
+    for (smpl = 0; smpl < num_samples; smpl++) {
+        data[smpl] = sin(2.0 * LPC_PI * smpl / pitch_period);
+    }
+}
+
+/* 簡易な係数計算テスト */
+TEST(LPCCalculatorTest, CalculateLPCCoefficientsTest)
+{
+    /* 意図したピッチが得られるかテスト（正弦波） */
+    {
+#define NUM_SAMPLES 2048
+#define NUM_COEFS 3
+#define MAX_PERIOD 200
+        struct LPCCalculator *ltpc;
+        struct LPCCalculatorConfig config;
+        double coef[NUM_COEFS] = { 0.0, };
+        double *data = NULL;
+        int32_t test_pitch, ref_pitch;
+        LPCApiResult ret;
+
+        data = (double *)malloc(sizeof(double) * NUM_SAMPLES);
+
+        config.max_num_samples = NUM_SAMPLES;
+        config.max_order = NUM_COEFS;
+        ltpc = LPCCalculator_Create(&config, NULL, 0);
+
+        for (ref_pitch = 10; ref_pitch < MAX_PERIOD; ref_pitch += 10) {
+            LPCCalculatorTest_GenerateSin(data, NUM_SAMPLES, ref_pitch);
+            ret = LPCCalculator_CalculateLTPCoefficients(
+                ltpc, data, NUM_SAMPLES, 1, MAX_PERIOD, coef, NUM_COEFS, &test_pitch, LPC_WINDOWTYPE_WELCH, 1e-5);
+            ASSERT_EQ(LPC_APIRESULT_OK, ret);
+            EXPECT_EQ(ref_pitch, test_pitch);
+        }
+
+        LPCCalculator_Destroy(ltpc);
+
+        free(data);
+#undef MAX_PERIOD
+#undef NUM_SAMPLES
+#undef NUM_COEFS
+    }
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
