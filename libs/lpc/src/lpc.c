@@ -1505,12 +1505,11 @@ static LPCError LPCCalculator_DetectPitch(
             }
         }
 
-        /* ローカルピークの探索 */
-        /* start, end 間で最大のピークを検索 */
+        /* ローカルピーク（start, end 間で最大のピーク）を探索 */
         local_peak_index = 0; local_peak = 0.0;
         abs_auto_corr[0] = fabs(auto_corr[start - 1]);
         abs_auto_corr[1] = fabs(auto_corr[start]);
-        for (j = start; j <= end; j++) {
+        for (j = start; j < end; j++) {
             abs_auto_corr[2] = fabs(auto_corr[j + 1]);
             if ((abs_auto_corr[1] > abs_auto_corr[0]) && (abs_auto_corr[1] > abs_auto_corr[2])) {
                 if (abs_auto_corr[1] > local_peak) {
@@ -1521,6 +1520,7 @@ static LPCError LPCCalculator_DetectPitch(
             abs_auto_corr[0] = abs_auto_corr[1];
             abs_auto_corr[1] = abs_auto_corr[2];
         }
+
         /* ローカルピーク（ピッチ候補）があった */
         if (local_peak_index != 0) {
             pitch_candidate[num_peak] = local_peak_index;
@@ -1531,7 +1531,7 @@ static LPCError LPCCalculator_DetectPitch(
             }
         }
 
-        i = end + 1;
+        i = end;
     }
 
     /* ピッチ候補を1つも発見できず */
@@ -1540,7 +1540,7 @@ static LPCError LPCCalculator_DetectPitch(
     }
 
     /* ピークの自己相関が小さい */
-    if (max_peak / auto_corr[0] < LPC_PITCH_AUTOCORR_THRESHOULD) {
+    if (max_peak < LPC_PITCH_AUTOCORR_THRESHOULD * auto_corr[0]) {
         return LPC_ERROR_FAILED_TO_FIND_PITCH;
     }
 
@@ -1549,6 +1549,10 @@ static LPCError LPCCalculator_DetectPitch(
         if (auto_corr[pitch_candidate[i]] >= LPC_PITCH_RATIO_VS_MAX_THRESHOULD * max_peak) {
             break;
         }
+    }
+    /* 有効なピッチ候補がなかった */
+    if (i == num_peak) {
+        return LPC_ERROR_FAILED_TO_FIND_PITCH;
     }
     tmp_pitch_period = pitch_candidate[i];
 
