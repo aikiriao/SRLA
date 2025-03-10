@@ -1489,36 +1489,30 @@ static LPCError LPCCalculator_DetectPitch(
     while ((i < max_pitch_period) && (num_peak < LPC_MAX_NUM_PITCH_CANDIDATES)) {
         uint32_t start, end, j, local_peak_index;
         double local_peak;
-        double abs_auto_corr[3] = { 0.0, };
 
-        /* 探索開始のゼロクロス点を検索 */
+        /* 探索開始のゼロクロス点（負 -> 正）を検索 */
         for (start = i; start < max_pitch_period; start++) {
-            if (auto_corr[start - 1] * auto_corr[start] < 0.0) {
+            if ((auto_corr[start - 1] < 0.0) && (auto_corr[start] > 0.0)) {
                 break;
             }
         }
 
-        /* 探索終了のゼロクロス点を検索 */
+        /* 探索終了のゼロクロス点（正 -> 負）を検索 */
         for (end = start + 1; end < max_pitch_period - 1; end++) {
-            if (auto_corr[end] * auto_corr[end + 1] < 0.0) {
+            if ((auto_corr[end] > 0.0) && (auto_corr[end + 1] < 0.0)) {
                 break;
             }
         }
 
         /* ローカルピーク（start, end 間で最大のピーク）を探索 */
         local_peak_index = 0; local_peak = 0.0;
-        abs_auto_corr[0] = fabs(auto_corr[start - 1]);
-        abs_auto_corr[1] = fabs(auto_corr[start]);
         for (j = start; j < end; j++) {
-            abs_auto_corr[2] = fabs(auto_corr[j + 1]);
-            if ((abs_auto_corr[1] > abs_auto_corr[0]) && (abs_auto_corr[1] > abs_auto_corr[2])) {
-                if (abs_auto_corr[1] > local_peak) {
+            if ((auto_corr[j] > auto_corr[j - 1]) && (auto_corr[j] > auto_corr[j + 1])) {
+                if (auto_corr[j] > local_peak) {
                     local_peak_index = j;
-                    local_peak = abs_auto_corr[1];
+                    local_peak = auto_corr[j];
                 }
             }
-            abs_auto_corr[0] = abs_auto_corr[1];
-            abs_auto_corr[1] = abs_auto_corr[2];
         }
 
         /* ローカルピーク（ピッチ候補）があった */
@@ -1531,7 +1525,7 @@ static LPCError LPCCalculator_DetectPitch(
             }
         }
 
-        i = end;
+        i = end + 1;
     }
 
     /* ピッチ候補を1つも発見できず */
@@ -1547,6 +1541,7 @@ static LPCError LPCCalculator_DetectPitch(
     /* ピッチ候補を先頭から見て、最大ピーク値の一定割合以上の値を持つ最初のピークがピッチ */
     for (i = 0; i < num_peak; i++) {
         if (auto_corr[pitch_candidate[i]] >= LPC_PITCH_RATIO_VS_MAX_THRESHOULD * max_peak) {
+            tmp_pitch_period = pitch_candidate[i];
             break;
         }
     }
@@ -1554,7 +1549,6 @@ static LPCError LPCCalculator_DetectPitch(
     if (i == num_peak) {
         return LPC_ERROR_FAILED_TO_FIND_PITCH;
     }
-    tmp_pitch_period = pitch_candidate[i];
 
     /* 成功終了 */
     (*pitch_period) = tmp_pitch_period;
