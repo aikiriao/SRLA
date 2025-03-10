@@ -17,7 +17,7 @@
 /* デフォルトの可変ブロック分割数 */
 #define DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS 1
 /* パラメータプリセットの最大インデックス */
-#define SRLA_MAX_PARAMETER_PRESETS_INDEX 5
+#define SRLA_MAX_PARAMETER_PRESETS_INDEX 6
 #if SRLA_MAX_PARAMETER_PRESETS_INDEX != (SRLA_NUM_PARAMETER_PRESETS - 1)
 #error "Max parameter presets mismatched to number of parameter presets!"
 #endif

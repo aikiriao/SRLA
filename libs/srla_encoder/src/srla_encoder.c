@@ -497,7 +497,7 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     {
         struct LPCCalculatorConfig lpcc_config;
         lpcc_config.max_num_samples = config->max_num_samples_per_block;
-        lpcc_config.max_order = config->max_num_parameters;
+        lpcc_config.max_order = SRLAUTILITY_MAX(config->max_num_parameters, SRLA_LTP_ORDER);
         if ((tmp_work_size = LPCCalculator_CalculateWorkSize(&lpcc_config)) < 0) {
             return -1;
         }
@@ -629,7 +629,7 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
         int32_t lpcc_size;
         struct LPCCalculatorConfig lpcc_config;
         lpcc_config.max_num_samples = config->max_num_samples_per_block;
-        lpcc_config.max_order = config->max_num_parameters;
+        lpcc_config.max_order = SRLAUTILITY_MAX(config->max_num_parameters, SRLA_LTP_ORDER);
         lpcc_size = LPCCalculator_CalculateWorkSize(&lpcc_config);
         if ((encoder->lpcc = LPCCalculator_Create(&lpcc_config, work_ptr, lpcc_size)) == NULL) {
             return NULL;
