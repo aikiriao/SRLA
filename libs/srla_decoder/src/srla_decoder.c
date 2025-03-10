@@ -498,9 +498,11 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
     /* LTP周期/LTP係数 */
     for (ch = 0; ch < num_channels; ch++) {
         /* LTP周期 */
-        BitReader_GetBits(&reader, &decoder->ltp_period[ch], SRLA_LTP_PERIOD_BITWIDTH);
+        uint32_t uval;
+        BitReader_GetBits(&reader, &uval, SRLA_LTP_PERIOD_BITWIDTH);
+        decoder->ltp_period[ch] = (uval == 0) ? 0 : (uval + SRLA_LTP_MIN_PERIOD - 1);
         if (decoder->ltp_period[ch] > 0) {
-            uint32_t i, uval;
+            uint32_t i;
             for (i = 0; i < SRLA_LTP_ORDER; i++) {
                 BitReader_GetBits(&reader, &uval, SRLA_LTP_COEFFICIENT_BITWIDTH);
                 decoder->ltp_coef[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);

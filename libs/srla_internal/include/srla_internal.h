@@ -25,14 +25,14 @@
 #define SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER 1e-5
 /* LTP係数次数 */
 #define SRLA_LTP_ORDER 3
-/* LTPの最小ピッチ周期 */
-#define SRLA_LTP_MIN_PERIOD 20
-/* LTPの最大ピッチ周期 */
-#define SRLA_LTP_MAX_PERIOD SRLA_MAX_COEFFICIENT_ORDER
 /* LTP周期のビット幅 */
 #define SRLA_LTP_PERIOD_BITWIDTH 8
 /* LTP係数のビット幅 */
 #define SRLA_LTP_COEFFICIENT_BITWIDTH 8
+/* LTPの最小ピッチ周期 */
+#define SRLA_LTP_MIN_PERIOD 20
+/* LTPの最大ピッチ周期 */
+#define SRLA_LTP_MAX_PERIOD (SRLA_LTP_MIN_PERIOD + (1 << SRLA_LTP_PERIOD_BITWIDTH) - 2)
 
 /* アサートマクロ */
 #ifdef NDEBUG

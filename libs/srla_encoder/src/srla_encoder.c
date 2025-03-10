@@ -1479,8 +1479,9 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
 
     /* LTP周期/LTP係数 */
     for (ch = 0; ch < header->num_channels; ch++) {
-        SRLA_ASSERT(encoder->ltp_period[ch] < (1U << SRLA_LTP_PERIOD_BITWIDTH));
-        BitWriter_PutBits(&writer, encoder->ltp_period[ch], SRLA_LTP_PERIOD_BITWIDTH);
+        const uint32_t coded_period = (encoder->ltp_period[ch] == 0) ? 0 : (encoder->ltp_period[ch] - SRLA_LTP_MIN_PERIOD + 1);
+        SRLA_ASSERT(coded_period < (1U << SRLA_LTP_PERIOD_BITWIDTH));
+        BitWriter_PutBits(&writer, coded_period, SRLA_LTP_PERIOD_BITWIDTH);
         if (encoder->ltp_period[ch] > 0) {
             uint32_t i;
             for (i = 0; i < SRLA_LTP_ORDER; i++) {
