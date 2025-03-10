@@ -1107,6 +1107,12 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
             const double shift_coef = tmp_ltp_coef_double[p] * pow(2.0, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
             tmp_ltp_coef_int[p] = (int32_t)SRLAUtility_Round(shift_coef);
         }
+        /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
+        for (p = 0; p < SRLA_LTP_ORDER / 2; p++) {
+            const int32_t tmp = tmp_ltp_coef_int[p];
+            tmp_ltp_coef_int[p] = tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1];
+            tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1] = tmp;
+        }
         /* LTPによる予測 残差を差し替え */
         SRLALTP_Predict(
             buffer_int, num_samples, tmp_ltp_coef_int, SRLA_LTP_ORDER,
