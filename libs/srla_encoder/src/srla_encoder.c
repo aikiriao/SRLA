@@ -1075,106 +1075,112 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         }
     }
 
-    /* double精度の信号に変換（[-1,1]の範囲に正規化） */
+
     {
+        /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         for (smpl = 0; smpl < num_samples; smpl++) {
             buffer_double[smpl] = buffer_int[smpl] * norm_const;
         }
-    }
 
-    /* LTP係数 */
-    if ((ret = LPCCalculator_CalculateLTPCoefficients(encoder->lpcc,
-        buffer_double, num_samples,
-        SRLA_LTP_MIN_PERIOD, SRLA_LTP_MAX_PERIOD,
-        tmp_ltp_coef_double, SRLA_LTP_ORDER, &tmp_ltp_period,
-        LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER)) != LPC_APIRESULT_OK) {
-        if (ret == LPT_APIRESULT_FAILED_TO_FIND_PITCH) {
-            /* ピッチ成分を見つけられなかった */
-            tmp_ltp_period = 0;
-        } else {
-            return SRLA_ERROR_NG;
-        }
-    }
-
-    /* ピッチ成分がある場合は係数を量子化・残差計算 */
-    if (tmp_ltp_period > 0) {
-        const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
-        for (p = 0; p < SRLA_LTP_ORDER; p++) {
-            /* 安定条件を満たすために1.0未満であることは確定 */
-            assert(fabs(tmp_ltp_coef_double[p]) < 1.0);
-            /* 整数に丸め込む */
-            const double shift_coef = tmp_ltp_coef_double[p] * pow(2.0, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
-            tmp_ltp_coef_int[p] = (int32_t)SRLAUtility_Round(shift_coef);
-        }
-        /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
-        for (p = 0; p < SRLA_LTP_ORDER / 2; p++) {
-            const int32_t tmp = tmp_ltp_coef_int[p];
-            tmp_ltp_coef_int[p] = tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1];
-            tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1] = tmp;
-        }
-        /* LTPによる予測 残差を差し替え */
-        SRLALTP_Predict(
-            buffer_int, num_samples, tmp_ltp_coef_int, SRLA_LTP_ORDER,
-            tmp_ltp_period, residual_int, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
-        memcpy(buffer_int, residual_int, sizeof(int32_t) * num_samples);
-        for (smpl = 0; smpl < num_samples; smpl++) {
-            buffer_double[smpl] = buffer_int[smpl] * norm_const;
-        }
-    }
-
-    /* 最大次数まで係数と誤差分散を計算 */
-    if ((ret = LPCCalculator_CalculateMultipleLPCCoefficients(encoder->lpcc,
-        buffer_double, num_samples,
-        encoder->multiple_lpc_coefs, encoder->error_vars, parameter_preset->max_num_parameters,
-        LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER)) != LPC_APIRESULT_OK) {
-        return SRLA_ERROR_NG;
-    }
-
-    /* 次数選択 */
-    if ((err = SRLAEncoder_SelectBestLPCOrder(header,
-        parameter_preset->lpc_order_tactics,
-        buffer_double, num_samples, (const double **)encoder->multiple_lpc_coefs, encoder->error_vars,
-        parameter_preset->max_num_parameters, &tmp_lpc_lpc_coef_order)) != SRLA_ERROR_OK) {
-        return err;
-    }
-
-    /* 係数計算・残差計算 */
-    if (tmp_lpc_lpc_coef_order > 0) {
-        /* 最良の次数をパラメータに設定 */
-        double_coef = encoder->multiple_lpc_coefs[tmp_lpc_lpc_coef_order - 1];
-
-        /* SVRによるLPC係数計算 */
-        if ((ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
+        /* LTP係数 */
+        if ((ret = LPCCalculator_CalculateLTPCoefficients(encoder->lpcc,
             buffer_double, num_samples,
-            double_coef, tmp_lpc_lpc_coef_order, parameter_preset->svr_max_num_iterations,
-            LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER,
-            parameter_preset->margin_list, parameter_preset->margin_list_size)) != LPC_APIRESULT_OK) {
+            SRLA_LTP_MIN_PERIOD, SRLA_LTP_MAX_PERIOD,
+            tmp_ltp_coef_double, SRLA_LTP_ORDER, &tmp_ltp_period,
+            LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER)) != LPC_APIRESULT_OK) {
+            if (ret == LPT_APIRESULT_FAILED_TO_FIND_PITCH) {
+                /* ピッチ成分を見つけられなかった */
+                tmp_ltp_period = 0;
+            } else {
+                return SRLA_ERROR_NG;
+            }
+        }
+
+        /* ピッチ成分がある場合は係数を量子化・残差計算 */
+        if (tmp_ltp_period > 0) {
+            const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
+            for (p = 0; p < SRLA_LTP_ORDER; p++) {
+                /* 安定条件を満たすために1.0未満であることは確定 */
+                assert(fabs(tmp_ltp_coef_double[p]) < 1.0);
+                /* 整数に丸め込む */
+                const double shift_coef = tmp_ltp_coef_double[p] * pow(2.0, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
+                tmp_ltp_coef_int[p] = (int32_t)SRLAUtility_Round(shift_coef);
+            }
+            /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
+            for (p = 0; p < SRLA_LTP_ORDER / 2; p++) {
+                const int32_t tmp = tmp_ltp_coef_int[p];
+                tmp_ltp_coef_int[p] = tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1];
+                tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1] = tmp;
+            }
+            /* LTPによる予測 残差を差し替え */
+            SRLALTP_Predict(
+                buffer_int, num_samples, tmp_ltp_coef_int, SRLA_LTP_ORDER,
+                tmp_ltp_period, residual_int, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
+            memcpy(buffer_int, residual_int, sizeof(int32_t) * num_samples);
+        }
+    }
+
+    {
+        /* double精度の信号に変換（[-1,1]の範囲に正規化） */
+        const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            buffer_double[smpl] = buffer_int[smpl] * norm_const;
+        }
+
+        /* 最大次数まで係数と誤差分散を計算 */
+        if ((ret = LPCCalculator_CalculateMultipleLPCCoefficients(encoder->lpcc,
+            buffer_double, num_samples,
+            encoder->multiple_lpc_coefs, encoder->error_vars, parameter_preset->max_num_parameters,
+            LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER)) != LPC_APIRESULT_OK) {
             return SRLA_ERROR_NG;
         }
 
-        /* LPC係数量子化 */
-        if ((ret = LPC_QuantizeCoefficients(double_coef, tmp_lpc_lpc_coef_order,
-            SRLA_LPC_COEFFICIENT_BITWIDTH, (1 << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH),
-            tmp_lpc_coef_int, &tmp_lpc_coef_rshift)) != LPC_APIRESULT_OK) {
-            return SRLA_ERROR_NG;
+        /* 次数選択 */
+        if ((err = SRLAEncoder_SelectBestLPCOrder(header,
+            parameter_preset->lpc_order_tactics,
+            buffer_double, num_samples, (const double **)encoder->multiple_lpc_coefs, encoder->error_vars,
+            parameter_preset->max_num_parameters, &tmp_lpc_lpc_coef_order)) != SRLA_ERROR_OK) {
+            return err;
         }
 
-        /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
-        for (p = 0; p < tmp_lpc_lpc_coef_order / 2; p++) {
-            const int32_t tmp = tmp_lpc_coef_int[p];
-            tmp_lpc_coef_int[p] = tmp_lpc_coef_int[tmp_lpc_lpc_coef_order - p - 1];
-            tmp_lpc_coef_int[tmp_lpc_lpc_coef_order - p - 1] = tmp;
-        }
+        /* 係数計算・残差計算 */
+        if (tmp_lpc_lpc_coef_order > 0) {
+            /* 最良の次数をパラメータに設定 */
+            double_coef = encoder->multiple_lpc_coefs[tmp_lpc_lpc_coef_order - 1];
 
-        /* LPC予測 */
-        SRLALPC_Predict(buffer_int,
-            num_samples, tmp_lpc_coef_int, tmp_lpc_lpc_coef_order, residual_int, tmp_lpc_coef_rshift);
-    } else {
-        /* 次数が0の時は計算をスキップし、入力を単純コピー */
-        memcpy(residual_int, buffer_int, sizeof(int32_t) * num_samples);
-        /* 右シフトも0とする */
-        tmp_lpc_coef_rshift = 0;
+            /* SVRによるLPC係数計算 */
+            if ((ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
+                buffer_double, num_samples,
+                double_coef, tmp_lpc_lpc_coef_order, parameter_preset->svr_max_num_iterations,
+                LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER,
+                parameter_preset->margin_list, parameter_preset->margin_list_size)) != LPC_APIRESULT_OK) {
+                return SRLA_ERROR_NG;
+            }
+
+            /* LPC係数量子化 */
+            if ((ret = LPC_QuantizeCoefficients(double_coef, tmp_lpc_lpc_coef_order,
+                SRLA_LPC_COEFFICIENT_BITWIDTH, (1 << SRLA_RSHIFT_LPC_COEFFICIENT_BITWIDTH),
+                tmp_lpc_coef_int, &tmp_lpc_coef_rshift)) != LPC_APIRESULT_OK) {
+                return SRLA_ERROR_NG;
+            }
+
+            /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
+            for (p = 0; p < tmp_lpc_lpc_coef_order / 2; p++) {
+                const int32_t tmp = tmp_lpc_coef_int[p];
+                tmp_lpc_coef_int[p] = tmp_lpc_coef_int[tmp_lpc_lpc_coef_order - p - 1];
+                tmp_lpc_coef_int[tmp_lpc_lpc_coef_order - p - 1] = tmp;
+            }
+
+            /* LPC予測 */
+            SRLALPC_Predict(buffer_int,
+                num_samples, tmp_lpc_coef_int, tmp_lpc_lpc_coef_order, residual_int, tmp_lpc_coef_rshift);
+        } else {
+            /* 次数が0の時は計算をスキップし、入力を単純コピー */
+            memcpy(residual_int, buffer_int, sizeof(int32_t) * num_samples);
+            /* 右シフトも0とする */
+            tmp_lpc_coef_rshift = 0;
+        }
     }
 
     /* 符号長計算 */
