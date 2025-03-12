@@ -1075,7 +1075,6 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         }
     }
 
-
     {
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
