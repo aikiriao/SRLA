@@ -275,7 +275,7 @@ void SRLALTP_Synthesize(
     const int32_t half = 1 << (coef_rshift - 1); /* 固定小数の0.5 */
     int32_t predict;
     const uint32_t half_order = coef_order >> 1;
-    const int32_t *dalay_data = (const int32_t *)(data - (int32_t)(pitch_period + half_order));
+    const int32_t *dalay_data = (const int32_t *)(data - (int32_t)(pitch_period + half_order)); /* ピッチ周期+次数/2だけ遅れた信号 */
 
     /* 引数チェック */
     SRLA_ASSERT(data != NULL);
@@ -286,11 +286,42 @@ void SRLALTP_Synthesize(
         return;
     }
 
-    for (smpl = pitch_period + half_order + 1; smpl < num_samples; smpl++) {
-        predict = half;
-        for (ord = 0; ord < coef_order; ord++) {
-            predict += (coef[ord] * dalay_data[smpl + ord]);
+    /* よく選ばれる奇数次数の処理についてループ展開しておく */
+    switch (coef_order) {
+    case 1:
+        for (smpl = pitch_period + half_order + 1; smpl < num_samples; smpl++) {
+            predict = half + coef[0] * dalay_data[smpl];
+            data[smpl] += (predict >> coef_rshift);
         }
-        data[smpl] += (predict >> coef_rshift);
+        break;
+    case 3:
+        for (smpl = pitch_period + half_order + 1; smpl < num_samples; smpl++) {
+            predict = half;
+            predict += coef[0] * dalay_data[smpl + 0];
+            predict += coef[1] * dalay_data[smpl + 1];
+            predict += coef[2] * dalay_data[smpl + 2];
+            data[smpl] += (predict >> coef_rshift);
+        }
+        break;
+    case 5:
+        for (smpl = pitch_period + half_order + 1; smpl < num_samples; smpl++) {
+            predict = half;
+            predict += coef[0] * dalay_data[smpl + 0];
+            predict += coef[1] * dalay_data[smpl + 1];
+            predict += coef[2] * dalay_data[smpl + 2];
+            predict += coef[3] * dalay_data[smpl + 3];
+            predict += coef[4] * dalay_data[smpl + 4];
+            data[smpl] += (predict >> coef_rshift);
+        }
+        break;
+    default:
+        for (smpl = pitch_period + half_order + 1; smpl < num_samples; smpl++) {
+            predict = half;
+            for (ord = 0; ord < coef_order; ord++) {
+                predict += (coef[ord] * dalay_data[smpl + ord]);
+            }
+            data[smpl] += (predict >> coef_rshift);
+        }
+        break;
     }
 }
