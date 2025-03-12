@@ -20,8 +20,7 @@
 /* ピッチと認める正規化自己相関の閾値 */
 #define LPC_PITCH_AUTOCORR_THRESHOULD 0.1
 /* 最大自己相関値からどの比率のピークをピッチとして採用するか */
-/* 純粋に相関除去したいなら1.0とする */
-#define LPC_PITCH_RATIO_VS_MAX_THRESHOULD 1.0
+#define LPC_PITCH_RATIO_VS_MAX_THRESHOULD 0.9
 
 /* nの倍数切り上げ */
 #define LPC_ROUNDUP(val, n) ((((val) + ((n) - 1)) / (n)) * (n))
