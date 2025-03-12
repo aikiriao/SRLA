@@ -1590,6 +1590,20 @@ LPCApiResult LPCCalculator_CalculateLTPCoefficients(
         return LPC_APIRESULT_NG;
     }
 
+    /* 平均（0Hz成分）を除去 */
+    /* これによりフレームの端点が0でなくなる（不連続点を生じる）が、フレーム長はピッチ周期に比べ十分大きいためその影響は小さい */
+    {
+        int32_t smpl;
+        double mean = 0.0;
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            mean += lpcc->buffer[smpl];
+        }
+        mean /= num_samples;
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            lpcc->buffer[smpl] -= mean;
+        }
+    }
+
     /* 自己相関を計算 */
     if (LPC_CalculateAutoCorrelationByFFT(
         lpcc->buffer, lpcc->work_buffer,
