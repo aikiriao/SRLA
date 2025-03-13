@@ -1527,8 +1527,8 @@ static LPCError LPCCalculator_DetectPitch(
         i = end + 1;
     }
 
-    /* ピッチ候補を1つも発見できず */
-    if (num_peaks == 0) {
+    /* ピッチ候補が少ない */
+    if (num_peaks <= 1) {
         return LPC_ERROR_FAILED_TO_FIND_PITCH;
     }
 
