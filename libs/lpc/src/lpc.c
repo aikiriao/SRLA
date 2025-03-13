@@ -1505,7 +1505,7 @@ static LPCError LPCCalculator_DetectPitch(
 
         /* ローカルピーク（start, end 間で最大のピーク）を探索 */
         local_peak_index = 0; local_peak = 0.0;
-        for (j = start; j < end; j++) {
+        for (j = start; j <= end; j++) {
             if ((auto_corr[j] > auto_corr[j - 1]) && (auto_corr[j] > auto_corr[j + 1])) {
                 if (auto_corr[j] > local_peak) {
                     local_peak_index = j;
