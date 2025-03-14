@@ -46,7 +46,20 @@ jobs:
         ctest -C Release
         popd
 
-    - name: Build tools
+    - name: Build tools on Windows platform
+      if: runner.os == 'Windows'
+      run: |
+        pushd tools/srla_codec
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake --build build --config Release
+        popd
+        pushd tools/srla_player
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake --build build --config Release
+        popd
+
+    - name: Build tools on Linux / macOS platform
+      if: runner.os == 'Linux' || runner.os == 'macOS'
       run: |
         pushd tools/srla_codec
         cmake -B build -DCMAKE_BUILD_TYPE=Release
