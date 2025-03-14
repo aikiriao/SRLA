@@ -37,6 +37,14 @@ jobs:
         cmake -B build_release -DCMAKE_BUILD_TYPE=Release
         cmake --build build_release --config Release
 
+    - name: Build SSE/AVX libraries
+      if: runner.os == 'Windows' || runner.os == 'Linux'
+      run: |
+        cmake -B build_release_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41
+        cmake --build build_release_sse41 --config Release
+        cmake -B build_release_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2
+        cmake --build build_release_avx2 --config Release
+
     - name: Test
       run: |
         pushd build_debug
@@ -45,7 +53,17 @@ jobs:
         pushd build_release
         ctest -C Release
         popd
-
+        
+    - name: Test SSE/AVX libraries
+      if: runner.os == 'Windows' || runner.os == 'Linux'
+      run: |
+        pushd build_release_sse41
+        ctest -C Release
+        popd
+        pushd build_release_avx2
+        ctest -C Release
+        popd
+        
     - name: Build tools on Windows platform
       if: runner.os == 'Windows'
       run: |
@@ -57,8 +75,24 @@ jobs:
         cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM=Win32
         cmake --build build --config Release
         popd
+        pushd tools/srla_codec
+        cmake -B build_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake --build build_sse41 --config Release
+        popd
+        pushd tools/srla_player
+        cmake -B build_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake --build build_sse41 --config Release
+        popd
+        pushd tools/srla_codec
+        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake --build build_avx2 --config Release
+        popd
+        pushd tools/srla_player
+        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake --build build_avx2 --config Release
+        popd
 
-    - name: Build tools on Linux / macOS platform
+    - name: Build tools on macOS platform
       if: runner.os == 'Linux' || runner.os == 'macOS'
       run: |
         pushd tools/srla_codec
@@ -70,18 +104,16 @@ jobs:
         cmake --build build --config Release
         popd
 
-    - name: Build SSE/AVX libraries and tools
-      if: runner.os == 'Windows' || runner.os == 'Linux'
+    - name: Build tools on Linux platform
+      if: runner.os == 'Linux'
       run: |
-        cmake -B build_release_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41
-        cmake --build build_release_sse41 --config Release
-        cmake -B build_release_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2
-        cmake --build build_release_avx2 --config Release
-        pushd build_release_sse41
-        ctest -C Release
+        pushd tools/srla_codec
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release
         popd
-        pushd build_release_avx2
-        ctest -C Release
+        pushd tools/srla_player
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release
         popd
         pushd tools/srla_codec
         cmake -B build_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41
