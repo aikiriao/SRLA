@@ -68,27 +68,27 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         pushd tools/srla_codec
-        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -A Win32 -T host=x86
         cmake --build build --config Release
         popd
         pushd tools/srla_player
-        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -A Win32 -T host=x86
         cmake --build build --config Release
         popd
         pushd tools/srla_codec
-        cmake -B build_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake -B build_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41 -A Win32 -T host=x86
         cmake --build build_sse41 --config Release
         popd
         pushd tools/srla_player
-        cmake -B build_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake -B build_sse41 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=SSE41 -A Win32 -T host=x86
         cmake --build build_sse41 --config Release
         popd
         pushd tools/srla_codec
-        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2 -A Win32 -T host=x86
         cmake --build build_avx2 --config Release
         popd
         pushd tools/srla_player
-        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2 -DCMAKE_GENERATOR_PLATFORM=Win32
+        cmake -B build_avx2 -DCMAKE_BUILD_TYPE=Release -DUSE_SIMD_INTRINSICS=AVX2 -A Win32 -T host=x86
         cmake --build build_avx2 --config Release
         popd
 
