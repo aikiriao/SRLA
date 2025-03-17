@@ -44,7 +44,12 @@ struct BitStream {
 /* ビルトイン関数を使用 */
 __inline uint32_t BITSTREAM_NLZ(uint32_t x)
 {
-    return __lzcnt(x);
+    unsigned long result;
+    if (!x) {
+        return 32U;
+    }
+    _BitScanReverse(&result, x);
+    return result ^ 31U;
 }
 #else
 /* ソフトウェア実装を使用 */
