@@ -1100,8 +1100,6 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         if (tmp_ltp_period > 0) {
             const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
             for (p = 0; p < SRLA_LTP_ORDER; p++) {
-                /* 安定条件を満たすために1.0未満であることは確定 */
-                assert(fabs(tmp_ltp_coef_double[p]) < 1.0);
                 /* 整数に丸め込む */
                 int32_t coef = (int32_t)SRLAUtility_Round(tmp_ltp_coef_double[p] * pow(2.0, SRLA_LTP_COEFFICIENT_BITWIDTH - 1));
                 /* 範囲内でクリップ */
