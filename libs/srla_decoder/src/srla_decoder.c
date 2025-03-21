@@ -510,6 +510,8 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
                 BitReader_GetBits(&reader, &uval, SRLA_LTP_COEFFICIENT_BITWIDTH);
                 decoder->ltp_coef[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
             }
+        } else {
+            decoder->ltp_period[ch] = 0;
         }
     }
 
