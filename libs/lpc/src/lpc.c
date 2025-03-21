@@ -1639,22 +1639,6 @@ LPCApiResult LPCCalculator_CalculateLTPCoefficients(
             coef_order, lpcc->u_vec, &lpcc->auto_corr[tmp_pitch_period - coef_order / 2], lpcc->work_buffer) != LPC_ERROR_OK) {
             return LPT_APIRESULT_FAILED_TO_FIND_PITCH;
         }
-
-        /* 得られた係数の収束条件を確認 */
-        {
-            double coef_sum = 0.0;
-            for (j = 0; j < coef_order; j++) {
-                coef_sum += fabs(lpcc->u_vec[j]);
-            }
-            if (coef_sum >= 1.0) {
-                /* 確実に安定する係数をセット: タップ数1と同様の状態に修正 */
-                for (j = 0; j < coef_order; j++) {
-                    lpcc->u_vec[j] = 0.0;
-                }
-                lpcc->u_vec[coef_order / 2]
-                    = lpcc->auto_corr[tmp_pitch_period] / lpcc->auto_corr[0];
-            }
-        }
     }
 
     /* 結果を出力にセット */
