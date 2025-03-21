@@ -1238,11 +1238,14 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         tmp_use_sum_coef = 0;
     }
 
-    /* LTP予測周期 */
-    tmp_code_length += SRLA_LTP_PERIOD_BITWIDTH;
+    /* LTP有効か否か */
+    tmp_code_length += 1;
 
-    /* LTP係数領域サイズ計算 */
+    /* LTP領域サイズ計算 */
     if (tmp_ltp_period > 0) {
+        /* LTP予測周期 */
+        tmp_code_length += SRLA_LTP_PERIOD_BITWIDTH;
+        /* LTP係数領域 */
         tmp_code_length += SRLA_LTP_ORDER * SRLA_LTP_COEFFICIENT_BITWIDTH;
     }
 
@@ -1483,17 +1486,20 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         }
     }
 
-    /* LTP周期/LTP係数 */
+    /* LTPフラグ/LTP周期/LTP係数 */
     for (ch = 0; ch < header->num_channels; ch++) {
-        const uint32_t coded_period = (encoder->ltp_period[ch] == 0) ? 0 : (encoder->ltp_period[ch] - SRLA_LTP_MIN_PERIOD + 1);
-        SRLA_ASSERT(coded_period < (1U << SRLA_LTP_PERIOD_BITWIDTH));
-        BitWriter_PutBits(&writer, coded_period, SRLA_LTP_PERIOD_BITWIDTH);
+        BitWriter_PutBits(&writer, encoder->ltp_period[ch] != 0, 1);
         if (encoder->ltp_period[ch] > 0) {
-            uint32_t i;
-            for (i = 0; i < SRLA_LTP_ORDER; i++) {
-                const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->ltp_coef_int[ch][i]);
-                SRLA_ASSERT(uval < (1U << SRLA_LTP_COEFFICIENT_BITWIDTH));
-                BitWriter_PutBits(&writer, uval, SRLA_LTP_COEFFICIENT_BITWIDTH);
+            const uint32_t coded_period = encoder->ltp_period[ch] - SRLA_LTP_MIN_PERIOD;
+            SRLA_ASSERT(coded_period < (1U << SRLA_LTP_PERIOD_BITWIDTH));
+            BitWriter_PutBits(&writer, coded_period, SRLA_LTP_PERIOD_BITWIDTH);
+            if (encoder->ltp_period[ch] > 0) {
+                uint32_t i;
+                for (i = 0; i < SRLA_LTP_ORDER; i++) {
+                    const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(encoder->ltp_coef_int[ch][i]);
+                    SRLA_ASSERT(uval < (1U << SRLA_LTP_COEFFICIENT_BITWIDTH));
+                    BitWriter_PutBits(&writer, uval, SRLA_LTP_COEFFICIENT_BITWIDTH);
+                }
             }
         }
     }
