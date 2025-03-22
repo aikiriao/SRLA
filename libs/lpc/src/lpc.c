@@ -1599,17 +1599,17 @@ LPCApiResult LPCCalculator_CalculateLTPCoefficients(
 
     /* 無音フレーム */
     if (fabs(lpcc->auto_corr[0]) <= FLT_MIN) {
-        return LPT_APIRESULT_FAILED_TO_FIND_PITCH;
+        return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
     }
 
     /* 無音フレームでなければピッチ検出 */
     if (LPCCalculator_DetectPitch(lpcc->auto_corr, min_pitch_period, max_pitch_period, &tmp_pitch_period) != LPC_ERROR_OK) {
-        return LPT_APIRESULT_FAILED_TO_FIND_PITCH;
+        return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
     }
 
     /* ピッチ候補の周期が近すぎる（フィルターで見ると現在-未来のサンプルを参照してしまう） */
     if (tmp_pitch_period < ((coef_order / 2) + 1)) {
-        return LPT_APIRESULT_FAILED_TO_FIND_PITCH;
+        return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
     }
 
     /* ロングターム係数の導出 */
@@ -1630,14 +1630,14 @@ LPCApiResult LPCCalculator_CalculateLTPCoefficients(
 
         /* コレスキー分解 */
         if (LPC_CholeskyDecomposition(lpcc->r_mat, coef_order, lpcc->work_buffer) != LPC_ERROR_OK) {
-            return LPT_APIRESULT_FAILED_TO_FIND_PITCH;
+            return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
         }
 
         /* 求解 */
         /* 右辺は中心においてピッチ周期の自己相関が入ったベクトル */
         if (LPC_SolveByCholeskyDecomposition(lpcc->r_mat,
             coef_order, lpcc->u_vec, &lpcc->auto_corr[tmp_pitch_period - coef_order / 2], lpcc->work_buffer) != LPC_ERROR_OK) {
-            return LPT_APIRESULT_FAILED_TO_FIND_PITCH;
+            return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
         }
     }
 

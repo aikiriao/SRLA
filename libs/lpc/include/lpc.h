@@ -10,7 +10,7 @@ typedef enum LPCApiResultTag {
     LPC_APIRESULT_INVALID_ARGUMENT,       /* 不正な引数 */
     LPC_APIRESULT_EXCEED_MAX_ORDER,       /* 最大次数を超えた */
     LPC_APIRESULT_EXCEED_MAX_NUM_SAMPLES, /* 最大入力サンプル数を超えた */
-    LPT_APIRESULT_FAILED_TO_FIND_PITCH,   /* ピッチ周期を見つけられなかった */
+    LPC_APIRESULT_FAILED_TO_FIND_PITCH,   /* ピッチ周期を見つけられなかった */
     LPC_APIRESULT_FAILED_TO_CALCULATION   /* 計算に失敗 */
 } LPCApiResult;
 
