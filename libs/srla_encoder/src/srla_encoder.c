@@ -1088,7 +1088,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
             SRLA_LTP_MIN_PERIOD, SRLA_LTP_MAX_PERIOD,
             tmp_ltp_coef_double, SRLA_LTP_ORDER, &tmp_ltp_period,
             LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER)) != LPC_APIRESULT_OK) {
-            if (ret == LPT_APIRESULT_FAILED_TO_FIND_PITCH) {
+            if (ret == LPC_APIRESULT_FAILED_TO_FIND_PITCH) {
                 /* ピッチ成分を見つけられなかった */
                 tmp_ltp_period = 0;
             } else {
