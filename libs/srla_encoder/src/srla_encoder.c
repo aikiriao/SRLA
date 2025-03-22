@@ -1075,7 +1075,8 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         }
     }
 
-    {
+    /* LTP(Long Term Prediction) */
+    if (parameter_preset->ltp_mode == SRLA_LTP_ENABLED) {
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         for (smpl = 0; smpl < num_samples; smpl++) {
@@ -1119,6 +1120,9 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
                 tmp_ltp_period, residual_int, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
             memcpy(buffer_int, residual_int, sizeof(int32_t) * num_samples);
         }
+    } else {
+        /* 無効の場合は周期0とする */
+        tmp_ltp_period = 0;
     }
 
     {

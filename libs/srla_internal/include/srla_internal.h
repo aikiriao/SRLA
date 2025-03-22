@@ -79,6 +79,12 @@ typedef enum SRLAChannelLPCOrderDecisionTacticsTag {
     SRLA_LPC_ORDER_DECISION_TACTICS_INVALID  /* 無効値 */
 } SRLAChannelLPCOrderDecisionTactics;
 
+/* LTP動作モード */
+typedef enum SRLALTPModeTag {
+    SRLA_LTP_DISABLED = 0, /* 常に無効 */
+    SRLA_LTP_ENABLED /* 常に有効 */
+} SRLALTPMode;
+
 /* 内部エラー型 */
 typedef enum SRLAErrorTag {
     SRLA_ERROR_OK = 0, /* OK */
@@ -97,6 +103,7 @@ struct SRLAParameterPreset {
     uint32_t svr_max_num_iterations; /* SVRの最大繰り返し回数 */
     const double *margin_list; /* マージンリスト */
     uint32_t margin_list_size; /* マージンリストサイズ */
+    SRLALTPMode ltp_mode; /* LTP動作モード */
 };
 
 #ifdef __cplusplus
