@@ -15,6 +15,12 @@
 #define LPC_PI 3.1415926535897932384626433832795029
 /* 残差絶対値の最小値 */
 #define LPCAF_RESIDUAL_EPSILON 1e-6
+/* ピッチ候補数 */
+#define LPC_MAX_NUM_PITCH_CANDIDATES 20
+/* ピッチと認める正規化自己相関の閾値 */
+#define LPC_PITCH_AUTOCORR_THRESHOULD 0.1
+/* 最大自己相関値からどの比率のピークをピッチとして採用するか */
+#define LPC_PITCH_RATIO_VS_MAX_THRESHOULD 0.9
 
 /* nの倍数切り上げ */
 #define LPC_ROUNDUP(val, n) ((((val) + ((n) - 1)) / (n)) * (n))
@@ -32,6 +38,7 @@ typedef enum LPCErrorTag {
     LPC_ERROR_OK = 0,
     LPC_ERROR_NG,
     LPC_ERROR_SINGULAR_MATRIX,
+    LPC_ERROR_FAILED_TO_FIND_PITCH,
     LPC_ERROR_INVALID_ARGUMENT
 } LPCError;
 
@@ -91,6 +98,11 @@ int32_t LPCCalculator_CalculateWorkSize(const struct LPCCalculatorConfig *config
         return -1;
     }
 
+    /* コンフィグチェック */
+    if (config->max_num_samples == 0) {
+        return -1;
+    }
+
     work_size = sizeof(struct LPCCalculator) + LPC_ALIGNMENT;
     /* a_vecで使用する領域 */
     work_size += (int32_t)(sizeof(double *) * (config->max_order + 1));
@@ -98,7 +110,7 @@ int32_t LPCCalculator_CalculateWorkSize(const struct LPCCalculatorConfig *config
     /* u, v ベクトル分の領域 */
     work_size += (int32_t)(sizeof(double) * (config->max_order + 2) * 2);
     /* 標本自己相関の領域 */
-    work_size += (int32_t)(sizeof(double) * (config->max_order + 1));
+    work_size += (int32_t)(sizeof(double) * config->max_num_samples);
     /* LPC係数ベクトルの領域 */
     work_size += (int32_t)(sizeof(double *) * (config->max_order + 1));
     work_size += (int32_t)(sizeof(double) * (config->max_order + 1) * (config->max_order + 1));
@@ -174,7 +186,7 @@ struct LPCCalculator* LPCCalculator_Create(const struct LPCCalculatorConfig *con
 
     /* 標本自己相関の領域割当 */
     lpcc->auto_corr = (double *)work_ptr;
-    work_ptr += sizeof(double) * (config->max_order + 1);
+    work_ptr += sizeof(double) * config->max_num_samples;
 
     /* PARCOR係数ベクトルの領域割当 */
     lpcc->parcor_coef = (double *)work_ptr;
@@ -1453,6 +1465,185 @@ LPCApiResult LPC_Synthesize(
         }
         data[smpl] -= (predict >> coef_rshift);
     }
+
+    return LPC_APIRESULT_OK;
+}
+
+/* 簡易ピッチ検出 */
+static LPCError LPCCalculator_DetectPitch(
+    const double *auto_corr, uint32_t min_pitch_period, uint32_t max_pitch_period, uint32_t *pitch_period)
+{
+    uint32_t i, num_peaks;
+    double max_peak;
+    uint32_t tmp_pitch_period;
+    uint32_t pitch_candidate[LPC_MAX_NUM_PITCH_CANDIDATES] = { 0, };
+
+    assert(auto_corr != NULL);
+    assert(pitch_period != NULL);
+    assert(min_pitch_period < max_pitch_period);
+
+    max_peak = 0.0;
+    num_peaks = 0;
+    i = min_pitch_period;
+    while ((i < max_pitch_period) && (num_peaks < LPC_MAX_NUM_PITCH_CANDIDATES)) {
+        uint32_t start, end, j, local_peak_index;
+        double local_peak;
+
+        /* 探索開始のゼロクロス点（負 -> 正）を検索 */
+        for (start = i; start < max_pitch_period; start++) {
+            if ((auto_corr[start - 1] < 0.0) && (auto_corr[start] > 0.0)) {
+                break;
+            }
+        }
+
+        /* 探索終了のゼロクロス点（正 -> 負）を検索 */
+        for (end = start + 1; end < max_pitch_period - 1; end++) {
+            if ((auto_corr[end] > 0.0) && (auto_corr[end + 1] < 0.0)) {
+                break;
+            }
+        }
+
+        /* ローカルピーク（start, end 間で最大のピーク）を探索 */
+        local_peak_index = 0; local_peak = 0.0;
+        for (j = start; j <= end; j++) {
+            if ((auto_corr[j] > auto_corr[j - 1]) && (auto_corr[j] > auto_corr[j + 1])) {
+                if (auto_corr[j] > local_peak) {
+                    local_peak_index = j;
+                    local_peak = auto_corr[j];
+                }
+            }
+        }
+
+        /* ローカルピーク（ピッチ候補）があった */
+        if (local_peak_index != 0) {
+            pitch_candidate[num_peaks] = local_peak_index;
+            num_peaks++;
+            /* 最大ピーク値の更新 */
+            if (local_peak > max_peak) {
+                max_peak = local_peak;
+            }
+        }
+
+        i = end + 1;
+    }
+
+    /* ピッチ候補が少ない */
+    if (num_peaks <= 1) {
+        return LPC_ERROR_FAILED_TO_FIND_PITCH;
+    }
+
+    /* ピークの自己相関が小さい */
+    if (max_peak < LPC_PITCH_AUTOCORR_THRESHOULD * auto_corr[0]) {
+        return LPC_ERROR_FAILED_TO_FIND_PITCH;
+    }
+
+    /* ピッチ候補を先頭から見て、最大ピーク値の一定割合以上の値を持つ最初のピークがピッチ */
+    for (i = 0; i < num_peaks; i++) {
+        if (auto_corr[pitch_candidate[i]] >= LPC_PITCH_RATIO_VS_MAX_THRESHOULD * max_peak) {
+            tmp_pitch_period = pitch_candidate[i];
+            break;
+        }
+    }
+    /* 有効なピッチ候補がなかった */
+    if (i == num_peaks) {
+        return LPC_ERROR_FAILED_TO_FIND_PITCH;
+    }
+
+    /* 成功終了 */
+    (*pitch_period) = tmp_pitch_period;
+    return LPC_ERROR_OK;
+}
+
+/* LTP係数を求める */
+LPCApiResult LPCCalculator_CalculateLTPCoefficients(
+    struct LPCCalculator *lpcc,
+    const double *data, uint32_t num_samples,
+    int32_t min_pitch_period, int32_t max_pitch_period,
+    double *coef, uint32_t coef_order, int32_t *pitch_period,
+    LPCWindowType window_type, double regular_term)
+{
+    uint32_t tmp_pitch_period;
+
+    /* 引数チェック */
+    if ((lpcc == NULL) || (data == NULL)
+        || (pitch_period == NULL) || (coef == NULL)) {
+        return LPC_APIRESULT_INVALID_ARGUMENT;
+    }
+
+    /* タップ数は奇数であることを要求 */
+    if (!(coef_order & 1)) {
+        return LPC_APIRESULT_INVALID_ARGUMENT;
+    }
+
+    /* ピッチ範囲が不正 */
+    if (min_pitch_period >= max_pitch_period) {
+        return LPC_APIRESULT_INVALID_ARGUMENT;
+    }
+
+    /* 最大のタップ数を越えている */
+    if (coef_order > lpcc->max_order) {
+        return LPC_APIRESULT_EXCEED_MAX_ORDER;
+    }
+
+    /* 窓関数を適用 */
+    if (LPC_ApplyWindow(window_type, data, num_samples, lpcc->buffer) != LPC_ERROR_OK) {
+        return LPC_APIRESULT_NG;
+    }
+
+    /* 自己相関を計算 */
+    if (LPC_CalculateAutoCorrelationByFFT(
+        lpcc->buffer, lpcc->work_buffer,
+        lpcc->max_num_buffer_samples, num_samples, lpcc->auto_corr, max_pitch_period + 1) != LPC_ERROR_OK) {
+        return LPC_APIRESULT_FAILED_TO_CALCULATION;
+    }
+
+    /* 無音フレーム */
+    if (fabs(lpcc->auto_corr[0]) <= FLT_MIN) {
+        return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
+    }
+
+    /* 無音フレームでなければピッチ検出 */
+    if (LPCCalculator_DetectPitch(lpcc->auto_corr, min_pitch_period, max_pitch_period, &tmp_pitch_period) != LPC_ERROR_OK) {
+        return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
+    }
+
+    /* ピッチ候補の周期が近すぎる（フィルターで見ると現在-未来のサンプルを参照してしまう） */
+    if (tmp_pitch_period < ((coef_order / 2) + 1)) {
+        return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
+    }
+
+    /* ロングターム係数の導出 */
+    {
+        uint32_t j, k;
+
+        /* 0次相関を強調(Ridge正則化) */
+        lpcc->auto_corr[0] *= (1.0 + regular_term);
+
+        /* 自己相関行列 */
+        /* (i,j)要素にギャップ|i-j|の自己相関 */
+        for (j = 0; j < coef_order; j++) {
+            for (k = j; k < coef_order; k++) {
+                const uint32_t lag = (j >= k) ? (j - k) : (k - j);
+                lpcc->r_mat[j][k] = lpcc->r_mat[k][j] = lpcc->auto_corr[lag];
+            }
+        }
+
+        /* コレスキー分解 */
+        if (LPC_CholeskyDecomposition(lpcc->r_mat, coef_order, lpcc->work_buffer) != LPC_ERROR_OK) {
+            return LPC_APIRESULT_FAILED_TO_CALCULATION;
+        }
+
+        /* 求解 */
+        /* 右辺は中心においてピッチ周期の自己相関が入ったベクトル */
+        if (LPC_SolveByCholeskyDecomposition(lpcc->r_mat,
+            coef_order, lpcc->u_vec, &lpcc->auto_corr[tmp_pitch_period - coef_order / 2], lpcc->work_buffer) != LPC_ERROR_OK) {
+            return LPC_APIRESULT_FAILED_TO_CALCULATION;
+        }
+    }
+
+    /* 結果を出力にセット */
+    memcpy(coef, lpcc->u_vec, sizeof(double) * coef_order);
+    (*pitch_period) = tmp_pitch_period;
 
     return LPC_APIRESULT_OK;
 }

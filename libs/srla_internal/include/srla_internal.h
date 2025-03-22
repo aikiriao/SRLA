@@ -23,6 +23,16 @@
 #define SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH 8
 /* LPCのリッジ正則化パラメータ */
 #define SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER 1e-5
+/* LTP係数次数 */
+#define SRLA_LTP_ORDER 3
+/* LTP周期のビット幅 */
+#define SRLA_LTP_PERIOD_BITWIDTH 8
+/* LTP係数のビット幅 */
+#define SRLA_LTP_COEFFICIENT_BITWIDTH 6
+/* LTPの最小ピッチ周期 */
+#define SRLA_LTP_MIN_PERIOD 8
+/* LTPの最大ピッチ周期 */
+#define SRLA_LTP_MAX_PERIOD (SRLA_LTP_MIN_PERIOD + (1 << SRLA_LTP_PERIOD_BITWIDTH) - 2)
 
 /* アサートマクロ */
 #ifdef NDEBUG
@@ -69,6 +79,12 @@ typedef enum SRLAChannelLPCOrderDecisionTacticsTag {
     SRLA_LPC_ORDER_DECISION_TACTICS_INVALID  /* 無効値 */
 } SRLAChannelLPCOrderDecisionTactics;
 
+/* LTP動作モード */
+typedef enum SRLALTPModeTag {
+    SRLA_LTP_DISABLED = 0, /* 常に無効 */
+    SRLA_LTP_ENABLED /* 常に有効 */
+} SRLALTPMode;
+
 /* 内部エラー型 */
 typedef enum SRLAErrorTag {
     SRLA_ERROR_OK = 0, /* OK */
@@ -87,6 +103,7 @@ struct SRLAParameterPreset {
     uint32_t svr_max_num_iterations; /* SVRの最大繰り返し回数 */
     const double *margin_list; /* マージンリスト */
     uint32_t margin_list_size; /* マージンリストサイズ */
+    SRLALTPMode ltp_mode; /* LTP動作モード */
 };
 
 #ifdef __cplusplus

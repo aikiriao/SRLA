@@ -263,3 +263,31 @@ void SRLALPC_Predict(
     }
 }
 #endif
+
+void SRLALTP_Predict(
+    const int32_t *data, uint32_t num_samples,
+    const int32_t *coef, uint32_t coef_order, uint32_t pitch_period,
+    int32_t *residual, uint32_t coef_rshift)
+{
+    uint32_t smpl, ord;
+    int32_t predict;
+    const int32_t half = 1 << (coef_rshift - 1); /* 固定小数の0.5 */
+    const uint32_t half_order = coef_order >> 1;
+    const int32_t *dalay_data = (const int32_t *)(data - (int32_t)(pitch_period + half_order));
+
+    /* 引数チェック */
+    SRLA_ASSERT(data != NULL);
+    SRLA_ASSERT(coef != NULL);
+    SRLA_ASSERT(residual != NULL);
+    SRLA_ASSERT((coef_order % 2) == 1);
+
+    memcpy(residual, data, sizeof(int32_t) * num_samples);
+
+    for (smpl = pitch_period + half_order + 1; smpl < num_samples; smpl++) {
+        predict = half;
+        for (ord = 0; ord < coef_order; ord++) {
+            predict += (coef[ord] * dalay_data[smpl + ord]);
+        }
+        residual[smpl] -= (predict >> coef_rshift);
+    }
+}

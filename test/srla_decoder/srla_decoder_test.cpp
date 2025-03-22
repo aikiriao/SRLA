@@ -208,8 +208,8 @@ TEST(SRLADecoderTest, CreateDestroyHandleTest)
         EXPECT_TRUE(decoder->work == work);
         EXPECT_FALSE(SRLADECODER_GET_STATUS_FLAG(decoder, SRLADECODER_STATUS_FLAG_ALLOCED_BY_OWN));
         EXPECT_FALSE(SRLADECODER_GET_STATUS_FLAG(decoder, SRLADECODER_STATUS_FLAG_SET_HEADER));
-        EXPECT_TRUE(decoder->params_int != NULL);
-        EXPECT_TRUE(decoder->params_int[0] != NULL);
+        EXPECT_TRUE(decoder->lpc_coef != NULL);
+        EXPECT_TRUE(decoder->lpc_coef[0] != NULL);
         EXPECT_TRUE(decoder->rshifts != NULL);
 
         SRLADecoder_Destroy(decoder);
@@ -228,8 +228,8 @@ TEST(SRLADecoderTest, CreateDestroyHandleTest)
         EXPECT_TRUE(decoder->work != NULL);
         EXPECT_TRUE(SRLADECODER_GET_STATUS_FLAG(decoder, SRLADECODER_STATUS_FLAG_ALLOCED_BY_OWN));
         EXPECT_FALSE(SRLADECODER_GET_STATUS_FLAG(decoder, SRLADECODER_STATUS_FLAG_SET_HEADER));
-        EXPECT_TRUE(decoder->params_int != NULL);
-        EXPECT_TRUE(decoder->params_int[0] != NULL);
+        EXPECT_TRUE(decoder->lpc_coef != NULL);
+        EXPECT_TRUE(decoder->lpc_coef[0] != NULL);
         EXPECT_TRUE(decoder->rshifts != NULL);
 
         SRLADecoder_Destroy(decoder);

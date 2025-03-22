@@ -10,6 +10,7 @@ typedef enum LPCApiResultTag {
     LPC_APIRESULT_INVALID_ARGUMENT,       /* 不正な引数 */
     LPC_APIRESULT_EXCEED_MAX_ORDER,       /* 最大次数を超えた */
     LPC_APIRESULT_EXCEED_MAX_NUM_SAMPLES, /* 最大入力サンプル数を超えた */
+    LPC_APIRESULT_FAILED_TO_FIND_PITCH,   /* ピッチ周期を見つけられなかった */
     LPC_APIRESULT_FAILED_TO_CALCULATION   /* 計算に失敗 */
 } LPCApiResult;
 
@@ -104,6 +105,14 @@ LPCApiResult LPC_Predict(
 LPCApiResult LPC_Synthesize(
     int32_t *data, uint32_t num_samples,
     const int32_t *coef, uint32_t coef_order, uint32_t coef_rshift);
+
+/* LTP係数とピッチ周期を計算 */
+LPCApiResult LPCCalculator_CalculateLTPCoefficients(
+    struct LPCCalculator *lpcc,
+    const double *data, uint32_t num_samples,
+    int32_t min_pitch_period, int32_t max_pitch_period,
+    double *coef, uint32_t coef_order, int32_t *pitch_period,
+    LPCWindowType window_type, double regular_term);
 
 #ifdef __cplusplus
 }
