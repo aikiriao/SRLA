@@ -1630,14 +1630,14 @@ LPCApiResult LPCCalculator_CalculateLTPCoefficients(
 
         /* コレスキー分解 */
         if (LPC_CholeskyDecomposition(lpcc->r_mat, coef_order, lpcc->work_buffer) != LPC_ERROR_OK) {
-            return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
+            return LPC_APIRESULT_FAILED_TO_CALCULATION;
         }
 
         /* 求解 */
         /* 右辺は中心においてピッチ周期の自己相関が入ったベクトル */
         if (LPC_SolveByCholeskyDecomposition(lpcc->r_mat,
             coef_order, lpcc->u_vec, &lpcc->auto_corr[tmp_pitch_period - coef_order / 2], lpcc->work_buffer) != LPC_ERROR_OK) {
-            return LPC_APIRESULT_FAILED_TO_FIND_PITCH;
+            return LPC_APIRESULT_FAILED_TO_CALCULATION;
         }
     }
 
