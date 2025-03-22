@@ -1528,7 +1528,7 @@ static LPCError LPCCalculator_DetectPitch(
     }
 
     /* ピッチ候補が少ない */
-    if (num_peaks <= 1) {
+    if (num_peaks == 0) {
         return LPC_ERROR_FAILED_TO_FIND_PITCH;
     }
 
