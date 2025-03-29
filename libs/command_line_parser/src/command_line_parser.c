@@ -94,7 +94,7 @@ void CommandLineParser_PrintDescription(const struct CommandLineParserSpecificat
         /* 引数の属性文字列を作成 */
         if (pspec->need_argument == COMMAND_LINE_PARSER_TRUE) {
             strcat(command_str, " (needs argument)");
-        } 
+        }
 
         /* 説明を付加して全てを印字 */
         printf("%-30s %s \n",
