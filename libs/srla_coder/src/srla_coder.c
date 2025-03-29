@@ -294,18 +294,6 @@ static double SRLACoder_CalculateMeanCodelength(double rho, uint32_t k1, uint32_
     return (1.0 + k1) * (1.0 - fk1) + (1.0 + k2 + (1.0 / (1.0 - fk2))) * fk1;
 }
 
-#if 0
-/* k1に関する偏微分係数の計算 */
-static double SRLACoder_CalculateDiffk1(double rho, double k1, double k2)
-{
-    const double k1pow = pow(2.0, k1);
-    const double fk1 = pow(1.0 - rho, k1pow);
-    const double fk2 = pow(1.0 - rho, pow(2.0, k2));
-    const double fk1d = k1pow * fk1 * log(1.0 - rho) * log(2.0);
-    return 1.0 - fk1 + (k2 - k1 + 1.0 / (1.0 - fk2)) * fk1d;
-}
-#endif
-
 /* 最適な符号化パラメータの計算 */
 static void SRLACoder_CalculateOptimalRecursiveRiceParameter(
     const double mean, uint32_t *optk1, uint32_t *optk2, double *bits_per_sample)
@@ -318,42 +306,15 @@ static void SRLACoder_CalculateOptimalRecursiveRiceParameter(
     rho = 1.0 / (1.0 + mean);
 
     /* 最適なパラメータの計算 */
-#if 0
-    k2 = (uint32_t)SRLAUTILITY_MAX(0, floor(SRLAUtility_Log2(log(OPTX) / log(1.0 - rho))));
-    k1 = k2 + 1;
-#else
     /* 高速近似計算 */
     {
-#define MLNOPTX (0.66794162356) /* -ln(OPTX) */
+#define MLNOPTX (0.66794162356) /* -ln(0.5127629514437670454896078808815218508243560791015625) */
         const uint32_t opt_golomb_param = (uint32_t)SRLAUTILITY_MAX(1, MLNOPTX * (1.0 + mean));
         k2 = SRLAUTILITY_LOG2FLOOR(opt_golomb_param);
         k1 = k2 + 1;
-    }
-#endif
 
-#if 0
-    /* k1を2分法で求める */
-    /* note: 一般にk1 = k2 + 1が成り立たなくなり符号化で不利！ */
-    {
-        uint32_t i;
-        double k1tmp, d1, d2;
-        const double k2tmp = SRLAUtility_Log2(log(OPTX) / log(1.0 - rho));
-        double k1min = k2tmp - 1.5;
-        double k1max = k2tmp + 1.5;
-        for (i = 0; i < 5; i++) {
-            k1tmp = (k1max + k1min) / 2.0;
-            d1 = SRLACoder_CalculateDiffk1(rho, k1tmp, k2tmp);
-            d2 = SRLACoder_CalculateDiffk1(rho, k1min, k2tmp);
-            if (SRLAUTILITY_SIGN(d1) == SRLAUTILITY_SIGN(d2)) {
-                k1min = k1tmp;
-            } else {
-                k1max = k1tmp;
-            }
-        }
-        k1 = (uint32_t)SRLAUTILITY_MAX(0, ceil(k1tmp));
-        k2 = (uint32_t)SRLAUTILITY_MAX(0, floor(k2tmp));
+#undef MLNOPTX
     }
-#endif
 
     /* 結果出力 */
     (*optk1) = k1;
@@ -363,8 +324,6 @@ static void SRLACoder_CalculateOptimalRecursiveRiceParameter(
     if (bits_per_sample != NULL) {
         (*bits_per_sample) = SRLACoder_CalculateMeanCodelength(rho, k1, k2);
     }
-
-#undef OPTX
 }
 
 /* Rice符号長の出力 */
@@ -381,25 +340,11 @@ static uint32_t RecursiveRice_ComputeCodeLength(const uint32_t *data, uint32_t n
 
     SRLA_ASSERT(data != NULL);
 
-#if 0
-    length = 0;
-    for (smpl = 0; smpl < num_samples; smpl++) {
-        const uint32_t uval = data[smpl];
-        if (uval < k1pow) {
-            /* 1段目で符号化 */
-            length += (k1 + 1);
-        } else {
-            /* 1段目のパラメータで引き、2段目のパラメータでRice符号化 */
-            length += (k2 + 2 + ((uval - k1pow) >> k2));
-        }
-    }
-#else
     SRLA_ASSERT((k2 + 1) == k1);
     length = (k1 + 1) * num_samples;
     for (smpl = 0; smpl < num_samples; smpl++) {
         length += (SRLAUTILITY_MAX(0, (int32_t)data[smpl] - (int32_t)k1pow) >> k2);
     }
-#endif
 
     return length;
 }
