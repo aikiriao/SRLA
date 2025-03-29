@@ -292,46 +292,74 @@ if __name__ == "__main__":
 
     # 計測
     results = {}
+    categ_results = {}
     for codec in CODEC_CONFUGURES:
-        results[codec.get_label()] = {}
+        CODEC_LABEL = codec.get_label()
+        results[CODEC_LABEL] = {}
+        categ_results[CODEC_LABEL] = {}
         for categ, fs in filesdir.items():
-            results[codec.get_label()][categ]\
-                = { 'encode_time': [], 'decode_time': [], 'compress_rate': [] }
+            categ_results[CODEC_LABEL][categ]\
+                = { 'encode time': [], 'decode time': [], 'compress rate': [] }
             for f in fs:
                 # 1ファイル計測
                 encode_time, size = codec.encode(f, COMPRESS_TMP_FILENAME)
                 decode_time = codec.decode(COMPRESS_TMP_FILENAME, DECOMPRESS_TMP_FILENAME)
                 # デコード結果一致チェック
-                check_result = 'NG'
+                check_result = False
                 if os.path.exists(DECOMPRESS_TMP_FILENAME):
                     if filecmp.cmp(f, DECOMPRESS_TMP_FILENAME):
-                        check_result = 'OK'
+                        check_result = True
+                assert check_result is True
                 # 結果記録
                 original_time = _get_wavfile_length_sec(f)
-                results[codec.get_label()][categ]['encode_time']\
-                    .append((encode_time * 100) / original_time)
-                results[codec.get_label()][categ]['decode_time']\
-                    .append((decode_time * 100) / original_time)
-                results[codec.get_label()][categ]['compress_rate']\
-                    .append((size * 100) / os.path.getsize(f))
+                original_size = os.path.getsize(f)
+                encode_ratio = (encode_time * 100) / original_time
+                decode_ratio = (decode_time * 100) / original_time
+                compress_ratio = (size * 100) / original_size
+                results[CODEC_LABEL][f] = {}
+                results[CODEC_LABEL][f]['encode time'] = encode_ratio
+                results[CODEC_LABEL][f]['decode time'] = decode_ratio
+                results[CODEC_LABEL][f]['compress rate'] = compress_ratio
+                categ_results[CODEC_LABEL][categ]['encode time'].append(encode_ratio)
+                categ_results[CODEC_LABEL][categ]['decode time'].append(decode_ratio)
+                categ_results[CODEC_LABEL][categ]['compress rate'].append(compress_ratio)
                 # 中間生成物の削除
                 if os.path.exists(COMPRESS_TMP_FILENAME):
                     os.remove(COMPRESS_TMP_FILENAME)
                 if os.path.exists(DECOMPRESS_TMP_FILENAME):
                     os.remove(DECOMPRESS_TMP_FILENAME)
-                print(f'[{codec.get_label()}] {f} {check_result}')
+                print(f'[{CODEC_LABEL}] {f}')
+
+    # 結果出力
+    with open('codec_comparison_result.csv', 'w', encoding='UTF-8') as f:
+        writer = csv.writer(f, lineterminator='\n')
+        header = ['file name']
+        for entry in ['encode time', 'decode time', 'compress rate']:
+            for codec in CODEC_CONFUGURES:
+                header.append(f'{codec.get_label()} {entry}')
+        writer.writerow(header)
+        for _, fs in filesdir.items():
+            for f in fs:
+                FILENAME = Path(f).stem
+                row = [f'{FILENAME}']
+                for entry in ['encode time', 'decode time', 'compress rate']:
+                    for codec in CODEC_CONFUGURES:
+                        row.append(np.mean(results[codec.get_label()][f][entry]))
+                writer.writerow(row)
+        writer.writerow(row)
+        writer.writerow([f'CPU: {platform.processor()}'])
 
     # 全カテゴリ結果を結合した結果の計算
     total_result = {}
     for codec in CODEC_CONFUGURES:
-        total_result[codec] = { 'encode_time': [], 'decode_time': [], 'compress_rate': [] }
+        total_result[codec] = { 'encode time': [], 'decode time': [], 'compress rate': [] }
         for categ in filesdir:
             for e in total_result[codec].keys():
-                total_result[codec][e].extend(results[codec.get_label()][categ][e])
+                total_result[codec][e].extend(categ_results[codec.get_label()][categ][e])
         for e in total_result[codec].keys():
             total_result[codec][e] = np.mean(total_result[codec][e])
 
-    # 結果出力
+    # 結果サマリ出力
     with open('codec_comparison_summery.csv', 'w', encoding='UTF-8') as f:
         writer = csv.writer(f, lineterminator='\n')
         header = ['']
@@ -341,29 +369,28 @@ if __name__ == "__main__":
         for categ in filesdir:
             row = [f'{categ} mean encode time']
             for codec in CODEC_CONFUGURES:
-                row.append(np.mean(results[codec.get_label()][categ]['encode_time']))
+                row.append(np.mean(categ_results[codec.get_label()][categ]['encode time']))
             writer.writerow(row)
         row = ['total mean encode time']
         for codec in CODEC_CONFUGURES:
-            row.append(total_result[codec]['encode_time'])
+            row.append(total_result[codec]['encode time'])
         writer.writerow(row)
         for categ in filesdir:
             row = [f'{categ} mean decode time']
             for codec in CODEC_CONFUGURES:
-                row.append(np.mean(results[codec.get_label()][categ]['decode_time']))
+                row.append(np.mean(categ_results[codec.get_label()][categ]['decode time']))
             writer.writerow(row)
         row = ['total mean decode time']
         for codec in CODEC_CONFUGURES:
-            row.append(total_result[codec]['decode_time'])
+            row.append(total_result[codec]['decode time'])
         writer.writerow(row)
         for categ in filesdir:
             row = [f'{categ} mean compression rate']
             for codec in CODEC_CONFUGURES:
-                row.append(np.mean(results[codec.get_label()][categ]['compress_rate']))
+                row.append(np.mean(categ_results[codec.get_label()][categ]['compress rate']))
             writer.writerow(row)
         row = ['total mean compression rate']
         for codec in CODEC_CONFUGURES:
-            row.append(total_result[codec]['compress_rate'])
+            row.append(total_result[codec]['compress rate'])
         writer.writerow(row)
-        writer.writerow(['Time', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
-        writer.writerow(['CPU', platform.processor()])
+        writer.writerow([f'CPU: {platform.processor()}'])
