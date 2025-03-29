@@ -33,7 +33,7 @@ if __name__ == "__main__":
     srla_codecs_df = pd.read_csv('codec_comparison_summery.csv', index_col=0)
     avx2_srla_codecs_df = pd.read_csv('codec_comparison_summery_avx2.csv', index_col=0)
 
-    for block_size in [4096, 8192, 16384]:
+    for block_size in [2048, 4096, 8192]:
         # デコード速度 v.s. 圧縮率グラフ
         for category in CATEGORIES:
             texts = []
