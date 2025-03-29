@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 /* デフォルトプリセット */
-#define DEFALUT_PRESET_INDEX 3
+#define DEFALUT_PRESET_INDEX 4
 /* デフォルトの最大ブロックサンプル数 */
 #define DEFALUT_MAX_NUM_BLOCK_SAMPLES 4096
 /* デフォルトの先読みサンプル数倍率 */
