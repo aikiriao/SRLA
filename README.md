@@ -58,6 +58,14 @@ Following example encoding with number of divisions in block to be $2^{2} = 4$.
 ./srla -e -V 2 INPUT.wav OUTPUT.srl
 ```
 
+#### Enable long term prediction `-P`
+
+The `-P` option enables long-term (pitch) prediction, which improves the compression ratio, especially for vocal/pure tonal signals.
+
+```bash
+./srla -e -P INPUT.wav OUTPUT.srl
+```
+
 ### Decode
 
 ```bash
