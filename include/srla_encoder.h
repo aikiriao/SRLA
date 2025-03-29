@@ -4,6 +4,12 @@
 #include "srla.h"
 #include "srla_stdint.h"
 
+/* LTP動作モード */
+typedef enum SRLAEncoderLTPModeTag {
+    SRLAENCODER_LTP_DISABLED = 0, /* 常に無効 */
+    SRLAENCODER_LTP_ENABLED /* 常に有効 */
+} SRLAEncoderLTPMode;
+
 /* エンコードパラメータ */
 struct SRLAEncodeParameter {
     uint16_t num_channels; /* 入力波形のチャンネル数 */
@@ -12,6 +18,7 @@ struct SRLAEncodeParameter {
     uint32_t min_num_samples_per_block; /* ブロックあたり最小サンプル数 */
     uint32_t max_num_samples_per_block; /* ブロックあたり最大サンプル数 */
     uint32_t num_lookahead_samples; /* 先読みサンプル数 */
+    SRLAEncoderLTPMode ltp_mode; /* LTP動作モード */
     uint8_t preset; /* エンコードパラメータプリセット */
 };
 

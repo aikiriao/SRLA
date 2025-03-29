@@ -7,7 +7,7 @@
 #define SRLA_FORMAT_VERSION         7
 
 /* コーデックバージョン */
-#define SRLA_CODEC_VERSION          12
+#define SRLA_CODEC_VERSION          13
 
 /* ヘッダサイズ */
 #define SRLA_HEADER_SIZE            29

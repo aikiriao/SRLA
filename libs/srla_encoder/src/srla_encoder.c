@@ -30,6 +30,7 @@ struct SRLAEncoder {
     uint32_t num_lookahead_samples; /* 先読みサンプル数 */
     uint32_t lb_num_samples_per_block; /* ブロックサンプル数の下限 */
     uint32_t max_num_parameters; /* 最大パラメータ数 */
+    SRLAEncoderLTPMode ltp_mode; /* LTP動作モード */
     uint8_t set_parameter; /* パラメータセット済み？ */
     struct LPCCalculator *lpcc; /* LPC計算ハンドル */
     struct SRLAPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
@@ -815,6 +816,7 @@ SRLAApiResult SRLAEncoder_SetEncodeParameter(
     /* ブロックあたり最小サンプル数・先読みサンプル数を記録 */
     encoder->min_num_samples_per_block = parameter->min_num_samples_per_block;
     encoder->num_lookahead_samples = parameter->num_lookahead_samples;
+    encoder->ltp_mode = parameter->ltp_mode;
 
     /* ヘッダ設定 */
     encoder->header = tmp_header;
@@ -1076,7 +1078,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     }
 
     /* LTP(Long Term Prediction) */
-    if (parameter_preset->ltp_mode == SRLA_LTP_ENABLED) {
+    if (encoder->ltp_mode == SRLAENCODER_LTP_ENABLED) {
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         for (smpl = 0; smpl < num_samples; smpl++) {

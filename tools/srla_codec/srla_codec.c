@@ -42,6 +42,8 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'V', "variable-block-divisions", "Specify number of variable block-size divisions (default:" TOSTRING(DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS) ")",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'P', "enable-long-term-prediction", "Enable long term (pitch) prediction (default:disabled)",
+        COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'c', "no-checksum-check", "Whether to NOT check checksum at decoding (default:no)",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'h', "help", "Show command help message",
@@ -62,7 +64,7 @@ static void encode_block_callback(
 
 /* エンコード 成功時は0、失敗時は0以外を返す */
 static int do_encode(const char *in_filename, const char *out_filename,
-    uint32_t encode_preset_no, uint32_t max_num_block_samples, uint32_t variable_block_num_divisions, uint32_t LOOKAHEAD_SAMPLES_FACTOR)
+    uint32_t encode_preset_no, uint32_t max_num_block_samples, uint32_t variable_block_num_divisions, uint32_t lookahead_samples_factor, SRLAEncoderLTPMode ltp_mode)
 {
     FILE *out_fp;
     struct WAVFile *in_wav;
@@ -79,7 +81,7 @@ static int do_encode(const char *in_filename, const char *out_filename,
     config.max_num_channels = SRLA_MAX_NUM_CHANNELS;
     config.min_num_samples_per_block = max_num_block_samples >> variable_block_num_divisions;
     config.max_num_samples_per_block = max_num_block_samples;
-    config.max_num_lookahead_samples = LOOKAHEAD_SAMPLES_FACTOR * max_num_block_samples;
+    config.max_num_lookahead_samples = lookahead_samples_factor * max_num_block_samples;
     config.max_num_parameters = SRLA_MAX_COEFFICIENT_ORDER;
     if ((encoder = SRLAEncoder_Create(&config, NULL, 0)) == NULL) {
         fprintf(stderr, "Failed to create encoder handle. \n");
@@ -100,7 +102,8 @@ static int do_encode(const char *in_filename, const char *out_filename,
     parameter.sampling_rate = in_wav->format.sampling_rate;
     parameter.min_num_samples_per_block = max_num_block_samples >> variable_block_num_divisions;
     parameter.max_num_samples_per_block = max_num_block_samples;
-    parameter.num_lookahead_samples = LOOKAHEAD_SAMPLES_FACTOR * max_num_block_samples;
+    parameter.num_lookahead_samples = lookahead_samples_factor * max_num_block_samples;
+    parameter.ltp_mode = ltp_mode;
     /* プリセットの反映 */
     parameter.preset = (uint8_t)encode_preset_no;
     if ((ret = SRLAEncoder_SetEncodeParameter(encoder, &parameter)) != SRLA_APIRESULT_OK) {
@@ -297,7 +300,8 @@ int main(int argc, char** argv)
         uint32_t encode_preset_no = DEFALUT_PRESET_INDEX;
         uint32_t max_num_block_samples = DEFALUT_MAX_NUM_BLOCK_SAMPLES;
         uint32_t variable_block_num_divisions = DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS;
-        uint32_t LOOKAHEAD_SAMPLES_FACTOR = DEFALUT_LOOKAHEAD_SAMPLES_FACTOR;
+        uint32_t lookahead_samples_factor = DEFALUT_LOOKAHEAD_SAMPLES_FACTOR;
+        SRLAEncoderLTPMode ltp_mode = SRLAENCODER_LTP_DISABLED;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
@@ -316,12 +320,12 @@ int main(int argc, char** argv)
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "lookahead-sample-factor") == COMMAND_LINE_PARSER_TRUE) {
             char* e;
             const char* lstr = CommandLineParser_GetArgumentString(command_line_spec, "lookahead-sample-factor");
-            LOOKAHEAD_SAMPLES_FACTOR = (uint32_t)strtol(lstr, &e, 10);
+            lookahead_samples_factor = (uint32_t)strtol(lstr, &e, 10);
             if (*e != '\0') {
                 fprintf(stderr, "%s: invalid number of lookahead samples. (irregular character found in %s at %s)\n", argv[0], lstr, e);
                 return 1;
             }
-            if ((LOOKAHEAD_SAMPLES_FACTOR == 0) || (LOOKAHEAD_SAMPLES_FACTOR >= (1U << 16))) {
+            if ((lookahead_samples_factor == 0) || (lookahead_samples_factor >= (1U << 16))) {
                 fprintf(stderr, "%s: lookahead factor is out of range. \n", argv[0]);
                 return 1;
             }
@@ -354,9 +358,13 @@ int main(int argc, char** argv)
                 return 1;
             }
         }
+        /* LTP動作モード */
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "enable-long-term-prediction") == COMMAND_LINE_PARSER_TRUE) {
+            ltp_mode = SRLAENCODER_LTP_ENABLED;
+        }
         /* 一括エンコード実行 */
         if (do_encode(input_file, output_file,
-            encode_preset_no, max_num_block_samples, variable_block_num_divisions, LOOKAHEAD_SAMPLES_FACTOR) != 0) {
+            encode_preset_no, max_num_block_samples, variable_block_num_divisions, lookahead_samples_factor, ltp_mode) != 0) {
             fprintf(stderr, "%s: failed to encode %s. \n", argv[0], input_file);
             return 1;
         }
