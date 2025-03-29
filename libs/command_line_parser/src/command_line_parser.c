@@ -14,7 +14,7 @@ static uint32_t CommandLineParser_GetNumSpecifications(
 
     /* リスト終端の0にぶつかるまでポインタを進める */
     num_specs = 0;
-    while ((clps->short_option != 0) || (clps->long_option != NULL)) {
+    while (clps->long_option != NULL) {
         num_specs++;
         clps++;
     }
@@ -41,13 +41,17 @@ static CommandLineParserBool CommandLineParser_CheckSpecification(
                 continue;
             }
             /* 同じオプション文字列を持つものがいたら不正 */
-            if (clps[j].short_option == clps[spec_no].short_option) {
+            if ((clps[j].short_option != 0) && (clps[j].short_option == clps[spec_no].short_option)) {
                 return COMMAND_LINE_PARSER_FALSE;
             } else if ((clps[j].long_option != NULL) && (clps[spec_no].long_option != NULL)) {
                 if (strcmp(clps[j].long_option, clps[spec_no].long_option) == 0) {
                     return COMMAND_LINE_PARSER_FALSE;
                 }
             }
+        }
+        /* ロングオプションの設定は必須 */
+        if (clps[spec_no].long_option == NULL) {
+            return COMMAND_LINE_PARSER_FALSE;
         }
     }
 
@@ -59,7 +63,6 @@ static CommandLineParserBool CommandLineParser_CheckSpecification(
 void CommandLineParser_PrintDescription(const struct CommandLineParserSpecification* clps)
 {
     uint32_t  spec_no;
-    char      arg_option_attr[256];
     char      command_str[256];
     uint32_t  num_specs;
 
@@ -80,24 +83,22 @@ void CommandLineParser_PrintDescription(const struct CommandLineParserSpecificat
     /* 仕様を順番に表示 */
     for (spec_no = 0; spec_no < num_specs; spec_no++) {
         const struct CommandLineParserSpecification* pspec = &clps[spec_no];
-        /* 引数の属性文字列を作成 */
-        if (pspec->need_argument == COMMAND_LINE_PARSER_TRUE) {
-            sprintf(arg_option_attr, "(needs argument)");
-        } else {
-            strcpy(arg_option_attr, "");
-        }
 
         /* コマンド文字列を作成 */
-        if (pspec->long_option != NULL) {
+        if (pspec->short_option != 0) {
             sprintf(command_str, "  -%c, --%s", pspec->short_option, pspec->long_option);
         } else {
-            sprintf(command_str, "  -%c", pspec->short_option);
+            sprintf(command_str, "      --%s", pspec->long_option);
         }
 
+        /* 引数の属性文字列を作成 */
+        if (pspec->need_argument == COMMAND_LINE_PARSER_TRUE) {
+            strcat(command_str, " (needs argument)");
+        } 
+
         /* 説明を付加して全てを印字 */
-        printf("%-20s %-18s  %s \n",
-                command_str, arg_option_attr,
-                (pspec->description != NULL) ? pspec->description : "");
+        printf("%-30s %s \n",
+                command_str, (pspec->description != NULL) ? pspec->description : "");
     }
 }
 

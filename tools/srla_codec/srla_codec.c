@@ -44,7 +44,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'P', "enable-long-term-prediction", "Enable long term (pitch) prediction (default:disabled)",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'c', "no-checksum-check", "Whether to NOT check checksum at decoding (default:no)",
+    {   0, "no-checksum-check", "Whether to NOT check checksum at decoding (default:no)",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'h', "help", "Show command help message",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
