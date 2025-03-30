@@ -26,7 +26,7 @@ struct SRLAEncoderCoefficient {
     uint32_t lpc_coef_rshift; /* LPC係数右シフト量 */
     uint32_t lpc_coef_order; /* LPC係数次数 */
     uint32_t use_sum_coef; /* LPC係数を和をとって符号化しているか */
-    int32_t ltp_coef[SRLA_LTP_ORDER]; /* LTP係数(int) */
+    int32_t ltp_coef[SRLA_MAX_LTP_ORDER]; /* LTP係数(int) */
     uint32_t ltp_period; /* 各チャンネルのLTP予測周期 */
 };
 
@@ -41,7 +41,7 @@ struct SRLAEncoder {
     uint32_t num_lookahead_samples; /* 先読みサンプル数 */
     uint32_t lb_num_samples_per_block; /* ブロックサンプル数の下限 */
     uint32_t max_num_parameters; /* 最大パラメータ数 */
-    SRLAEncoderLTPMode ltp_mode; /* LTP動作モード */
+    uint32_t ltp_order; /* LTP次数 */
     uint8_t set_parameter; /* パラメータセット済み？ */
     struct LPCCalculator *lpcc; /* LPC計算ハンドル */
     struct SRLAPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
@@ -495,7 +495,7 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     {
         struct LPCCalculatorConfig lpcc_config;
         lpcc_config.max_num_samples = config->max_num_samples_per_block;
-        lpcc_config.max_order = SRLAUTILITY_MAX(config->max_num_parameters, SRLA_LTP_ORDER);
+        lpcc_config.max_order = SRLAUTILITY_MAX(config->max_num_parameters, SRLA_MAX_LTP_ORDER);
         if ((tmp_work_size = LPCCalculator_CalculateWorkSize(&lpcc_config)) < 0) {
             return -1;
         }
@@ -531,7 +531,7 @@ int32_t SRLAEncoder_CalculateWorkSize(const struct SRLAEncoderConfig *config)
     /* LPC係数領域のサイズ */
     work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(double, config->max_num_parameters, config->max_num_parameters);
     /* LTP計数領域のサイズ */
-    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(double) * SRLA_LTP_ORDER);
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(double) * SRLA_MAX_LTP_ORDER);
     /* 分割設定記録領域のサイズ */
     work_size += (int32_t)(SRLAENCODER_CALCULATE_NUM_NODES(config->max_num_samples_per_block, config->min_num_samples_per_block) * sizeof(uint32_t) + SRLA_MEMORY_ALIGNMENT);
 
@@ -598,7 +598,7 @@ struct SRLAEncoder* SRLAEncoder_Create(const struct SRLAEncoderConfig *config, v
         int32_t lpcc_size;
         struct LPCCalculatorConfig lpcc_config;
         lpcc_config.max_num_samples = config->max_num_samples_per_block;
-        lpcc_config.max_order = SRLAUTILITY_MAX(config->max_num_parameters, SRLA_LTP_ORDER);
+        lpcc_config.max_order = SRLAUTILITY_MAX(config->max_num_parameters, SRLA_MAX_LTP_ORDER);
         lpcc_size = LPCCalculator_CalculateWorkSize(&lpcc_config);
         if ((encoder->lpcc = LPCCalculator_Create(&lpcc_config, work_ptr, lpcc_size)) == NULL) {
             return NULL;
@@ -719,7 +719,9 @@ SRLAApiResult SRLAEncoder_SetEncodeParameter(
     /* ヘッダに入れない内容でパラメータチェック */
     if ((parameter->min_num_samples_per_block > parameter->max_num_samples_per_block)
         || (parameter->num_lookahead_samples < parameter->max_num_samples_per_block)
-        || ((parameter->num_lookahead_samples % parameter->min_num_samples_per_block) != 0)) {
+        || ((parameter->num_lookahead_samples % parameter->min_num_samples_per_block) != 0)
+        || ((parameter->ltp_order > 0) && ((parameter->ltp_order % 2) == 0)) || (parameter->ltp_order > SRLA_MAX_LTP_ORDER)
+        ) {
         return SRLA_APIRESULT_INVALID_FORMAT;
     }
 
@@ -735,7 +737,8 @@ SRLAApiResult SRLAEncoder_SetEncodeParameter(
     /* ブロックあたり最小サンプル数・先読みサンプル数を記録 */
     encoder->min_num_samples_per_block = parameter->min_num_samples_per_block;
     encoder->num_lookahead_samples = parameter->num_lookahead_samples;
-    encoder->ltp_mode = parameter->ltp_mode;
+    /* LTP次数設定 */
+    encoder->ltp_order = parameter->ltp_order;
 
     /* ヘッダ設定 */
     encoder->header = tmp_header;
@@ -969,8 +972,8 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     uint32_t tmp_use_sum_coef;
     uint32_t tmp_code_length;
     int32_t tmp_ltp_period;
-    double tmp_ltp_coef_double[SRLA_LTP_ORDER] = { 0.0, };
-    int32_t tmp_ltp_coef_int[SRLA_LTP_ORDER] = { 0, };
+    double tmp_ltp_coef_double[SRLA_MAX_LTP_ORDER] = { 0.0, };
+    int32_t tmp_ltp_coef_int[SRLA_MAX_LTP_ORDER] = { 0, };
 
     /* 引数チェック */
     if ((encoder == NULL) || (buffer_int == NULL) || (buffer_double == NULL) || (residual_int == NULL)
@@ -995,7 +998,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     }
 
     /* LTP(Long Term Prediction) */
-    if (encoder->ltp_mode == SRLAENCODER_LTP_ENABLED) {
+    if (encoder->ltp_order > 0) {
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         for (smpl = 0; smpl < num_samples; smpl++) {
@@ -1006,7 +1009,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         if ((ret = LPCCalculator_CalculateLTPCoefficients(encoder->lpcc,
             buffer_double, num_samples,
             SRLA_LTP_MIN_PERIOD, SRLA_LTP_MAX_PERIOD,
-            tmp_ltp_coef_double, SRLA_LTP_ORDER, &tmp_ltp_period,
+            tmp_ltp_coef_double, encoder->ltp_order, &tmp_ltp_period,
             LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER)) != LPC_APIRESULT_OK) {
             if (ret == LPC_APIRESULT_FAILED_TO_FIND_PITCH) {
                 /* ピッチ成分を見つけられなかった */
@@ -1019,7 +1022,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         /* ピッチ成分がある場合は係数を量子化・残差計算 */
         if (tmp_ltp_period > 0) {
             const double norm_const = pow(2.0, -(int32_t)(header->bits_per_sample - 1));
-            for (p = 0; p < SRLA_LTP_ORDER; p++) {
+            for (p = 0; p < encoder->ltp_order; p++) {
                 /* 整数に丸め込む */
                 int32_t coef = (int32_t)SRLAUtility_Round(tmp_ltp_coef_double[p] * pow(2.0, SRLA_LTP_COEFFICIENT_BITWIDTH - 1));
                 /* 範囲内でクリップ */
@@ -1028,14 +1031,14 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
                 tmp_ltp_coef_int[p] = coef;
             }
             /* 畳み込み演算でインデックスが増える方向にしたい都合上パラメータ順序を変転 */
-            for (p = 0; p < SRLA_LTP_ORDER / 2; p++) {
+            for (p = 0; p < encoder->ltp_order / 2; p++) {
                 const int32_t tmp = tmp_ltp_coef_int[p];
-                tmp_ltp_coef_int[p] = tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1];
-                tmp_ltp_coef_int[SRLA_LTP_ORDER - p - 1] = tmp;
+                tmp_ltp_coef_int[p] = tmp_ltp_coef_int[encoder->ltp_order - p - 1];
+                tmp_ltp_coef_int[encoder->ltp_order - p - 1] = tmp;
             }
             /* LTPによる予測 残差を差し替え */
             SRLALTP_Predict(
-                buffer_int, num_samples, tmp_ltp_coef_int, SRLA_LTP_ORDER,
+                buffer_int, num_samples, tmp_ltp_coef_int, encoder->ltp_order,
                 tmp_ltp_period, residual_int, SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
             memcpy(buffer_int, residual_int, sizeof(int32_t) * num_samples);
         }
@@ -1169,7 +1172,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
         /* LTP予測周期 */
         tmp_code_length += SRLA_LTP_PERIOD_BITWIDTH;
         /* LTP係数領域 */
-        tmp_code_length += SRLA_LTP_ORDER * SRLA_LTP_COEFFICIENT_BITWIDTH;
+        tmp_code_length += encoder->ltp_order * SRLA_LTP_COEFFICIENT_BITWIDTH;
     }
 
     /* 結果の出力 */
@@ -1182,7 +1185,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     }
     coefs->use_sum_coef = tmp_use_sum_coef;
     if (tmp_ltp_period > 0) {
-        memcpy(coefs->ltp_coef, tmp_ltp_coef_int, sizeof(int32_t) * SRLA_LTP_ORDER);
+        memcpy(coefs->ltp_coef, tmp_ltp_coef_int, sizeof(int32_t) * encoder->ltp_order);
     }
     coefs->ltp_period = tmp_ltp_period;
     (*code_length) = tmp_code_length;
@@ -1399,9 +1402,13 @@ static SRLAApiResult SRLAEncoder_EncodeCompressData(
         if (pcoef[ch].ltp_period > 0) {
             uint32_t i;
             const uint32_t coded_period = pcoef[ch].ltp_period - SRLA_LTP_MIN_PERIOD;
+            SRLA_ASSERT((encoder->ltp_order % 2) == 1);
+            SRLA_ASSERT(encoder->ltp_order <= SRLA_MAX_LTP_ORDER);
+            SRLA_ASSERT((encoder->ltp_order - 1) / 2 <= ((1 << SRLA_LTP_ORDER_BITWIDTH) - 1));
+            BitWriter_PutBits(&writer, (encoder->ltp_order - 1) / 2, SRLA_LTP_ORDER_BITWIDTH);
             SRLA_ASSERT(coded_period < (1U << SRLA_LTP_PERIOD_BITWIDTH));
             BitWriter_PutBits(&writer, coded_period, SRLA_LTP_PERIOD_BITWIDTH);
-            for (i = 0; i < SRLA_LTP_ORDER; i++) {
+            for (i = 0; i < encoder->ltp_order; i++) {
                 const uint32_t uval = SRLAUTILITY_SINT32_TO_UINT32(pcoef[ch].ltp_coef[i]);
                 SRLA_ASSERT(uval < (1U << SRLA_LTP_COEFFICIENT_BITWIDTH));
                 BitWriter_PutBits(&writer, uval, SRLA_LTP_COEFFICIENT_BITWIDTH);

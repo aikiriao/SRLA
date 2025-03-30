@@ -32,8 +32,9 @@ struct SRLADecoder {
     uint32_t *coef_order; /* 各チャンネルのLPC係数次数 */
     int32_t **ltp_coef; /* 各チャンネルのLTP係数(int) */
     uint32_t *ltp_period; /* 各チャンネルのLTP周期 */
-    const struct StaticHuffmanTree* param_tree; /* 係数のハフマン木 */
-    const struct StaticHuffmanTree* sum_param_tree; /* 和を取った係数のハフマン木 */
+    uint32_t *ltp_order; /* 各チャンネルのLTP次数 */
+    const struct StaticHuffmanTree *param_tree; /* 係数のハフマン木 */
+    const struct StaticHuffmanTree *sum_param_tree; /* 和を取った係数のハフマン木 */
     const struct SRLAParameterPreset *parameter_preset; /* パラメータプリセット */
     uint8_t status_flags; /* 内部状態フラグ */
     void *work; /* ワーク領域先頭ポインタ */
@@ -200,8 +201,10 @@ int32_t SRLADecoder_CalculateWorkSize(const struct SRLADecoderConfig *config)
     /* 各チャンネルのLPC係数次数 */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
     /* LTP係数(int) */
-    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, SRLA_LTP_ORDER);
+    work_size += (int32_t)SRLA_CALCULATE_2DIMARRAY_WORKSIZE(int32_t, config->max_num_channels, SRLA_MAX_LTP_ORDER);
     /* LTP周期 */
+    work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
+    /* LTP次数 */
     work_size += (int32_t)(SRLA_MEMORY_ALIGNMENT + sizeof(uint32_t) * config->max_num_channels);
 
     return work_size;
@@ -273,10 +276,14 @@ struct SRLADecoder *SRLADecoder_Create(const struct SRLADecoderConfig *config, v
     work_ptr += config->max_num_channels * sizeof(uint32_t);
     /* LTP係数(int) */
     SRLA_ALLOCATE_2DIMARRAY(decoder->ltp_coef,
-        work_ptr, int32_t, config->max_num_channels, SRLA_LTP_ORDER);
+        work_ptr, int32_t, config->max_num_channels, SRLA_MAX_LTP_ORDER);
     /* LTP周期 */
     work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
     decoder->ltp_period = (uint32_t *)work_ptr;
+    work_ptr += config->max_num_channels * sizeof(uint32_t);
+    /* LTP次数 */
+    work_ptr = (uint8_t *)SRLAUTILITY_ROUNDUP((uintptr_t)work_ptr, SRLA_MEMORY_ALIGNMENT);
+    decoder->ltp_order = (uint32_t *)work_ptr;
     work_ptr += config->max_num_channels * sizeof(uint32_t);
 
     /* バッファオーバーランチェック */
@@ -502,11 +509,14 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         BitReader_GetBits(&reader, &uval, 1);
         if (uval != 0) {
             uint32_t i;
+            /* LTP次数 */
+            BitReader_GetBits(&reader, &uval, SRLA_LTP_ORDER_BITWIDTH);
+            decoder->ltp_order[ch] = 2 * uval + 1;
             /* LTP周期 */
             BitReader_GetBits(&reader, &uval, SRLA_LTP_PERIOD_BITWIDTH);
             decoder->ltp_period[ch] = uval + SRLA_LTP_MIN_PERIOD;
             /* LTP係数 */
-            for (i = 0; i < SRLA_LTP_ORDER; i++) {
+            for (i = 0; i < decoder->ltp_order[ch]; i++) {
                 BitReader_GetBits(&reader, &uval, SRLA_LTP_COEFFICIENT_BITWIDTH);
                 decoder->ltp_coef[ch][i] = SRLAUTILITY_UINT32_TO_SINT32(uval);
             }
@@ -536,7 +546,7 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
             num_decode_samples, decoder->lpc_coef[ch], decoder->coef_order[ch], decoder->rshifts[ch]);
         /* LTP合成 */
         SRLALTP_Synthesize(buffer[ch],
-            num_decode_samples, decoder->ltp_coef[ch], SRLA_LTP_ORDER,
+            num_decode_samples, decoder->ltp_coef[ch], decoder->ltp_order[ch],
             decoder->ltp_period[ch], SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
         /* デエンファシス */
         SRLAPreemphasisFilter_MultiStageDeemphasis(

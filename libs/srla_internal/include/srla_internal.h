@@ -23,8 +23,8 @@
 #define SRLA_LPC_COEFFICIENT_ORDER_BITWIDTH 8
 /* LPCのリッジ正則化パラメータ */
 #define SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER 1e-5
-/* LTP係数次数 */
-#define SRLA_LTP_ORDER 3
+/* LTP次数のビット幅 */
+#define SRLA_LTP_ORDER_BITWIDTH 1
 /* LTP周期のビット幅 */
 #define SRLA_LTP_PERIOD_BITWIDTH 8
 /* LTP係数のビット幅 */

@@ -280,6 +280,7 @@ void SRLALTP_Predict(
     SRLA_ASSERT(coef != NULL);
     SRLA_ASSERT(residual != NULL);
     SRLA_ASSERT((coef_order % 2) == 1);
+    SRLA_ASSERT(coef_order <= SRLA_MAX_LTP_ORDER);
 
     memcpy(residual, data, sizeof(int32_t) * num_samples);
 

@@ -4,10 +4,10 @@
 #include "srla_stdint.h"
 
 /* フォーマットバージョン */
-#define SRLA_FORMAT_VERSION         7
+#define SRLA_FORMAT_VERSION         8
 
 /* コーデックバージョン */
-#define SRLA_CODEC_VERSION          13
+#define SRLA_CODEC_VERSION          15
 
 /* ヘッダサイズ */
 #define SRLA_HEADER_SIZE            29
@@ -17,6 +17,9 @@
 
 /* 最大係数次数 */
 #define SRLA_MAX_COEFFICIENT_ORDER  255
+
+/* 最大LTP係数次数 */
+#define SRLA_MAX_LTP_ORDER          3
 
 /* パラメータプリセット数 */
 #define SRLA_NUM_PARAMETER_PRESETS  7
