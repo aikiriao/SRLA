@@ -57,7 +57,7 @@ if __name__ == "__main__":
                 line = [[], []]
                 for label in srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label or _is_avoid_label(label, True):
+                        if not str(block_size) in label or not f'-V {div}' in label or '-P' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         decode_time = float(srla_codecs_df.at[f'{category} mean decode time', label])
@@ -66,12 +66,25 @@ if __name__ == "__main__":
                         line[0].append(decode_time)
                         line[1].append(compress_rate)
                 plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'SRLA V={div}', marker='^')
+            for div_index, div in enumerate([0]):
+                line = [[], []]
+                for label in srla_codecs_df.keys():
+                    if label.startswith('SRLA'):
+                        if not str(block_size) in label or not f'-V {div}' in label or not '-P' in label or _is_avoid_label(label, True):
+                            continue
+                        option_prefix = label[len('SRLA'):label.index('V') - 1]
+                        decode_time = float(srla_codecs_df.at[f'{category} mean decode time', label])
+                        compress_rate = float(srla_codecs_df.at[f'{category} mean compression rate', label])
+                        texts.append(plt.text(decode_time, compress_rate, option_prefix, size=10))
+                        line[0].append(decode_time)
+                        line[1].append(compress_rate)
+                plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'SRLA V={div} -P', marker='^', linestyle=':')
             # AVX2 SRLA
             for div_index, div in enumerate([0, 2]):
                 line = [[], []]
                 for label in avx2_srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label or _is_avoid_label(label, True):
+                        if not str(block_size) in label or not f'-V {div}' in label or '-P' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         decode_time = float(avx2_srla_codecs_df.at[f'{category} mean decode time', label])
@@ -80,6 +93,19 @@ if __name__ == "__main__":
                         line[0].append(decode_time)
                         line[1].append(compress_rate)
                 plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'AVX2 SRLA V={div}', marker='^', linestyle='--')
+            for div_index, div in enumerate([0]):
+                line = [[], []]
+                for label in avx2_srla_codecs_df.keys():
+                    if label.startswith('SRLA'):
+                        if not str(block_size) in label or not f'-V {div}' in label or not '-P' in label or _is_avoid_label(label, True):
+                            continue
+                        option_prefix = label[len('SRLA'):label.index('V') - 1]
+                        decode_time = float(srla_codecs_df.at[f'{category} mean decode time', label])
+                        compress_rate = float(srla_codecs_df.at[f'{category} mean compression rate', label])
+                        texts.append(plt.text(decode_time, compress_rate, option_prefix, size=10))
+                        line[0].append(decode_time)
+                        line[1].append(compress_rate)
+                plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'SRLA V={div} -P', marker='^', linestyle=':')
 
             adjust_text(texts)
             plt.title(f'Decoding speed v.s. compression rate for {category} blocksize:{block_size}')
@@ -91,6 +117,7 @@ if __name__ == "__main__":
                 plt.ylim(ymin=53.5)
             plt.tight_layout()
             plt.savefig(f'decodespeed_vs_compressionrate_{block_size}_{category}.png')
+            plt.close()
 
         # エンコード速度 v.s. 圧縮率グラフ
         for category in CATEGORIES:
@@ -115,7 +142,7 @@ if __name__ == "__main__":
                 line = [[], []]
                 for label in srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label or _is_avoid_label(label, True):
+                        if not str(block_size) in label or not f'-V {div}' in label or '-P' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         encode_time = srla_codecs_df.at[f'{category} mean encode time', label]
@@ -124,6 +151,19 @@ if __name__ == "__main__":
                         line[0].append(encode_time)
                         line[1].append(compress_rate)
                 plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'SRLA V={div}', marker='^')
+            for div_index, div in enumerate([0]):
+                line = [[], []]
+                for label in srla_codecs_df.keys():
+                    if label.startswith('SRLA'):
+                        if not str(block_size) in label or not f'-V {div}' in label or not '-P' in label or _is_avoid_label(label, True):
+                            continue
+                        option_prefix = label[len('SRLA'):label.index('V') - 1]
+                        decode_time = float(srla_codecs_df.at[f'{category} mean encode time', label])
+                        compress_rate = float(srla_codecs_df.at[f'{category} mean compression rate', label])
+                        texts.append(plt.text(decode_time, compress_rate, option_prefix, size=10))
+                        line[0].append(decode_time)
+                        line[1].append(compress_rate)
+                plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'SRLA V={div} -P', marker='^', linestyle=':')
 
             adjust_text(texts)
             plt.title(f'Encoding speed v.s. compression rate for {category} blocksize:{block_size}')
@@ -133,3 +173,4 @@ if __name__ == "__main__":
             plt.grid()
             plt.tight_layout()
             plt.savefig(f'encodespeed_vs_compressionrate_{block_size}_{category}.png')
+            plt.close()
