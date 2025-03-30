@@ -34,6 +34,7 @@ extern "C" {
         param__p->min_num_samples_per_block = 1024;\
         param__p->max_num_samples_per_block = 2048;\
         param__p->num_lookahead_samples     = 4096;\
+        param__p->ltp_order                 = 1;\
         param__p->preset                    = 0;\
     } while (0);
 
