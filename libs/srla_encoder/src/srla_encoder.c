@@ -1169,6 +1169,8 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
 
     /* LTP領域サイズ計算 */
     if (tmp_ltp_period > 0) {
+        /* LTP次数 */
+        tmp_code_length += SRLA_LTP_ORDER_BITWIDTH;
         /* LTP予測周期 */
         tmp_code_length += SRLA_LTP_PERIOD_BITWIDTH;
         /* LTP係数領域 */
