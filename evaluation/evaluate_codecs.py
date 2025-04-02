@@ -333,7 +333,7 @@ if __name__ == "__main__":
     # 結果出力
     with open('codec_comparison_result.csv', 'w', encoding='UTF-8') as f:
         writer = csv.writer(f, lineterminator='\n')
-        header = ['file name']
+        header = [f'CPU: {platform.processor()}']
         for entry in ['encode time', 'decode time', 'compress rate']:
             for codec in CODEC_CONFUGURES:
                 header.append(f'{codec.get_label()} {entry}')
@@ -347,7 +347,6 @@ if __name__ == "__main__":
                         row.append(np.mean(results[codec.get_label()][f][entry]))
                 writer.writerow(row)
         writer.writerow(row)
-        writer.writerow([f'CPU: {platform.processor()}'])
 
     # 全カテゴリ結果を結合した結果の計算
     total_result = {}
@@ -362,7 +361,7 @@ if __name__ == "__main__":
     # 結果サマリ出力
     with open('codec_comparison_summery.csv', 'w', encoding='UTF-8') as f:
         writer = csv.writer(f, lineterminator='\n')
-        header = ['']
+        header = [f'CPU: {platform.processor()}']
         for codec in CODEC_CONFUGURES:
             header.append(codec.get_label())
         writer.writerow(header)
@@ -393,4 +392,3 @@ if __name__ == "__main__":
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['compress rate'])
         writer.writerow(row)
-        writer.writerow([f'CPU: {platform.processor()}'])
