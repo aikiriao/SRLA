@@ -77,11 +77,11 @@ We use [RWC music dataset](https://staff.aist.go.jp/m.goto/RWC-MDB/) for compari
 
 ### Decoding speed vs compression ratio
 
-![Decoding speed vs compression rate](./evaluation/decodespeed_vs_compressionrate_8192_total.png)
+![Decoding speed vs compression rate](./evaluation/decodespeed_vs_compressionrate_4096_total.png)
 
 ### Encoding speed vs compression ratio
 
-![Encoding speed vs compression rate](./evaluation/encodespeed_vs_compressionrate_8192_total.png)
+![Encoding speed vs compression rate](./evaluation/encodespeed_vs_compressionrate_4096_total.png)
 
 ## License
 

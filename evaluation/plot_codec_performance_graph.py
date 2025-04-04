@@ -70,7 +70,7 @@ if __name__ == "__main__":
                 line = [[], []]
                 for label in srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label or not '-P' in label or _is_avoid_label(label, True):
+                        if not str(block_size) in label or not f'-V {div}' in label or not '-P 3' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         decode_time = float(srla_codecs_df.at[f'{category} mean decode time', label])
@@ -78,13 +78,13 @@ if __name__ == "__main__":
                         texts.append(plt.text(decode_time, compress_rate, option_prefix, size=10))
                         line[0].append(decode_time)
                         line[1].append(compress_rate)
-                plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'SRLA V={div} -P', marker='^', linestyle=':')
+                plt.plot(line[0], line[1], color=COLORLIST[len(OTHER_CODEC_LABEL_PREFIXES) + div_index], label=f'SRLA V={div} -P 3', marker='^', linestyle=':')
             # AVX2 SRLA
             for div_index, div in enumerate([0, 2]):
                 line = [[], []]
                 for label in avx2_srla_codecs_df.keys():
                     if label.startswith('SRLA'):
-                        if not str(block_size) in label or not f'-V {div}' in label or '-P 3' in label or _is_avoid_label(label, True):
+                        if not str(block_size) in label or not f'-V {div}' in label or '-P' in label or _is_avoid_label(label, True):
                             continue
                         option_prefix = label[len('SRLA'):label.index('V') - 1]
                         decode_time = float(avx2_srla_codecs_df.at[f'{category} mean decode time', label])
