@@ -42,8 +42,8 @@ Following example encoding in maximum compression (but slow) option.
 ```
 #### Max block size `-B`
 
-You can change maximum block size by `-B` option.
-Following example encoding with maximum block size be 4096 sample.
+The'- B' option can change the maximum block size.
+The following example encodes with a maximum block size of 4096 samples.
 
 ```bash
 ./srla -e -B 4096 INPUT.wav OUTPUT.srl
@@ -51,16 +51,26 @@ Following example encoding with maximum block size be 4096 sample.
 
 #### Number of divisions in block `-V`
 
-You can change number of division by `-V` option. Number of division specifies search depth of optimal block division.
-Following example encoding with number of divisions in block to be $2^{2} = 4$.
+You can change the number of divisions using the `-V` option. The number of divisions specifies the search depth of optimal block division.
+The following example encodes with a number of divisions in the block to be $2^{2} = 4$.
 
 ```bash
 ./srla -e -V 2 INPUT.wav OUTPUT.srl
 ```
 
-#### Long term prediction order `-P`
+#### Lookahead sample factor `-L`
+
+You can change the multiplying factor for lookahead samples in variable block division.
+The following example is encoding with a lookahead factor of 8.
+
+```bash
+./srla -e -L 8 INPUT.wav OUTPUT.srl
+```
+
+#### Long-term prediction order `-P`
 
 The `-P` option specifies long-term (pitch) prediction order, which improves the compression ratio, especially for vocal/pure tonal signals.
+Following example encoding with long-term prediction order 3.
 
 ```bash
 ./srla -e -P 3 INPUT.wav OUTPUT.srl
