@@ -299,11 +299,6 @@ static void SRLACoder_CalculateOptimalRecursiveRiceParameter(
     const double mean, uint32_t *optk1, uint32_t *optk2, double *bits_per_sample)
 {
     uint32_t k1, k2;
-    double rho;
-#define OPTX 0.5127629514437670454896078808815218508243560791015625 /* (x - 1)^2 + ln(2) x ln(x) = 0 の解 */
-
-    /* 幾何分布のパラメータを最尤推定 */
-    rho = 1.0 / (1.0 + mean);
 
     /* 最適なパラメータの計算 */
     /* 高速近似計算 */
@@ -322,6 +317,8 @@ static void SRLACoder_CalculateOptimalRecursiveRiceParameter(
 
     /* 平均符号長の計算 */
     if (bits_per_sample != NULL) {
+        /* 幾何分布のパラメータを最尤推定 */
+        const double rho = 1.0 / (1.0 + mean);
         (*bits_per_sample) = SRLACoder_CalculateMeanCodelength(rho, k1, k2);
     }
 }
