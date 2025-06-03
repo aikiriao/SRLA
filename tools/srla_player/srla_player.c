@@ -6,6 +6,11 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/* Windows環境で64bitファイル長向けstatを使うため、statを差し替え */
+#if defined(WIN32)
+#define stat _stat64
+#endif
+
 /* 出力要求コールバック */
 static void SRLAPlayer_SampleRequestCallback(int32_t **buffer, uint32_t num_channels, uint32_t num_samples);
 /* 終了処理 */

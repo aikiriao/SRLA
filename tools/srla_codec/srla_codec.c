@@ -28,6 +28,11 @@
 /* a, bのうち小さい方を選択 */
 #define SRLACODEC_MIN(a, b) (((a) < (b)) ? (a) : (b))
 
+/* Windows環境で64bitファイル長向けstatを使うため、statを差し替え */
+#if defined(WIN32)
+#define stat _stat64
+#endif
+
 /* コマンドライン仕様 */
 static struct CommandLineParserSpecification command_line_spec[] = {
     { 'e', "encode", "Encode mode",
@@ -134,8 +139,8 @@ static int do_encode(const char *in_filename, const char *out_filename,
     }
 
     /* 圧縮結果サマリの表示 */
-    printf("finished: %d -> %d (%6.2f %%) \n",
-            (uint32_t)fstat.st_size, encoded_data_size, (double)((100.0 * encoded_data_size) / (double)fstat.st_size));
+    printf("finished: %zd -> %zd (%6.2f %%) \n",
+            fstat.st_size, encoded_data_size, (double)((100.0 * encoded_data_size) / (double)fstat.st_size));
 
     /* リソース破棄 */
     fclose(out_fp);
