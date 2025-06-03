@@ -115,6 +115,9 @@ SRLAApiResult SRLADecoder_DecodeHeader(
     /* サンプルあたりビット数 */
     ByteArray_GetUint16BE(data_pos, &u16buf);
     tmp_header.bits_per_sample = u16buf;
+    /* オフセットされた左シフト量 */
+    ByteArray_GetUint8(data_pos, &u8buf);
+    tmp_header.offset_lshift = u8buf;
     /* ブロックあたり最大サンプル数 */
     ByteArray_GetUint32BE(data_pos, &u32buf);
     tmp_header.max_num_samples_per_block = u32buf;
@@ -160,6 +163,10 @@ static SRLAError SRLADecoder_CheckHeaderFormat(const struct SRLAHeader *header)
     }
     /* ビット深度 */
     if (header->bits_per_sample == 0) {
+        return SRLA_ERROR_INVALID_FORMAT;
+    }
+    /* オフセットされた左シフト量 */
+    if (header->offset_lshift >= 32) {
         return SRLA_ERROR_INVALID_FORMAT;
     }
     /* ブロックあたり最大サンプル数 */
@@ -571,6 +578,16 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
         break;
     default:
         SRLA_ASSERT(0);
+    }
+
+    /* オフセットされたbit分を復元 */
+    if (header->offset_lshift > 0) {
+        uint32_t smpl;
+        for (ch = 0; ch < header->num_channels; ch++) {
+            for (smpl = 0; smpl < num_decode_samples; smpl++) {
+                buffer[ch][smpl] <<= header->offset_lshift;
+            }
+        }
     }
 
     /* 成功終了 */

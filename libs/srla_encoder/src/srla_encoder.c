@@ -114,6 +114,10 @@ SRLAApiResult SRLAEncoder_EncodeHeader(
     if (header->bits_per_sample == 0) {
         return SRLA_APIRESULT_INVALID_FORMAT;
     }
+    /* オフセットされた左シフト量 */
+    if (header->offset_lshift >= 32) {
+        return SRLA_APIRESULT_INVALID_FORMAT;
+    }
     /* ブロックあたり最大サンプル数 */
     if (header->max_num_samples_per_block == 0) {
         return SRLA_APIRESULT_INVALID_FORMAT;
@@ -145,6 +149,8 @@ SRLAApiResult SRLAEncoder_EncodeHeader(
     ByteArray_PutUint32BE(data_pos, header->sampling_rate);
     /* サンプルあたりビット数 */
     ByteArray_PutUint16BE(data_pos, header->bits_per_sample);
+    /* オフセットされた左シフト量 */
+    ByteArray_PutUint8(data_pos, header->offset_lshift);
     /* ブロックあたり最大サンプル数 */
     ByteArray_PutUint32BE(data_pos, header->max_num_samples_per_block);
     /* パラメータプリセット */
@@ -1226,6 +1232,16 @@ static SRLAApiResult SRLAEncoder_ComputeCoefficients(
         }
     }
 
+    /* オフセットされたbit分を除去 */
+    if (header->offset_lshift > 0) {
+        uint32_t smpl;
+        for (ch = 0; ch < header->num_channels; ch++) {
+            for (smpl = 0; smpl < num_samples; smpl++) {
+                encoder->buffer_int[ch][smpl] >>= header->offset_lshift;
+            }
+        }
+    }
+
     /* MS信号生成・符号長計算 */
     if (header->num_channels >= 2) {
         for (ch = 0; ch < 2; ch++) {
@@ -1691,9 +1707,9 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
     const int32_t *input_ptr[SRLA_MAX_NUM_CHANNELS];
     const struct SRLAHeader *header;
     SRLAApiResult (*encode_function)(
-        struct SRLAEncoder* encoder,
+        struct SRLAEncoder *encoder,
         const int32_t* const* input, uint32_t num_samples,
-        uint8_t * data, uint32_t data_size, uint32_t * output_size) = NULL;
+        uint8_t *data, uint32_t data_size, uint32_t *output_size) = NULL;
 
     /* 引数チェック */
     if ((encoder == NULL) || (input == NULL)
@@ -1710,6 +1726,7 @@ SRLAApiResult SRLAEncoder_EncodeWhole(
     data_pos = data;
 
     /* ヘッダエンコード */
+    encoder->header.offset_lshift = SRLAUtility_ComputeOffsetLeftShift(input, encoder->header.num_channels, num_samples);
     encoder->header.num_samples = num_samples;
     if ((ret = SRLAEncoder_EncodeHeader(&(encoder->header), data_pos, data_size))
             != SRLA_APIRESULT_OK) {

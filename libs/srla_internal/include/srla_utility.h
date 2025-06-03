@@ -131,6 +131,10 @@ void SRLAUtility_LRtoSRConversion(int32_t **buffer, uint32_t num_samples);
 /* SR -> LR (in-place) */
 void SRLAUtility_SRtoLRConversion(int32_t **buffer, uint32_t num_samples);
 
+/* ダイナミックレンジ(bit)を計算 */
+uint32_t SRLAUtility_ComputeOffsetLeftShift(
+    const int32_t* const* input, uint32_t num_channels, uint32_t num_samples);
+
 /* プリエンファシスフィルタ初期化 */
 void SRLAPreemphasisFilter_Initialize(struct SRLAPreemphasisFilter *preem);
 

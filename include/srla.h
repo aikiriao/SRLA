@@ -4,13 +4,13 @@
 #include "srla_stdint.h"
 
 /* フォーマットバージョン */
-#define SRLA_FORMAT_VERSION         8
+#define SRLA_FORMAT_VERSION         9
 
 /* コーデックバージョン */
-#define SRLA_CODEC_VERSION          15
+#define SRLA_CODEC_VERSION          16
 
 /* ヘッダサイズ */
-#define SRLA_HEADER_SIZE            29
+#define SRLA_HEADER_SIZE            30
 
 /* 処理可能な最大チャンネル数 */
 #define SRLA_MAX_NUM_CHANNELS       8
@@ -45,6 +45,7 @@ struct SRLAHeader {
     uint32_t num_samples;                           /* 1チャンネルあたり総サンプル数  */
     uint32_t sampling_rate;                         /* サンプリングレート             */
     uint16_t bits_per_sample;                       /* サンプルあたりビット数         */
+    uint8_t offset_lshift;                          /* オフセットされた左シフト量     */
     uint32_t max_num_samples_per_block;             /* ブロックあたり最大サンプル数   */
     uint8_t preset;                                 /* パラメータプリセット         */
 };
