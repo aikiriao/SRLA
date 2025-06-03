@@ -195,7 +195,7 @@ uint32_t SRLAUtility_ComputeOffsetLeftShift(
     }
 
     /* ntz（末尾へ続く0の個数）を計算
-     * ntz(x) = 32 - nlz(~x & (x-1)), nlz(x) = 31 - log2ceil(x)を使用 */
+    * ntz(x) = 32 - nlz(~x & (x-1)), nlz(x) = 31 - log2ceil(x)を使用 */
     offset_shift = 1 + SRLAUTILITY_LOG2FLOOR(~mask & (mask - 1));
     SRLA_ASSERT(offset_shift <= 31);
 
