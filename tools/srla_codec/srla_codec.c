@@ -16,6 +16,8 @@
 #define DEFALUT_LOOKAHEAD_SAMPLES_FACTOR 4
 /* デフォルトの可変ブロック分割数 */
 #define DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS 1
+/* デフォルトのSVRによるフィルタ同定の学習繰り返し回数 */
+#define DEFALUT_NUM_SVR_FILTER_LEARNING_ITERATIONS 0
 /* パラメータプリセットの最大インデックス */
 #define SRLA_MAX_PARAMETER_PRESETS_INDEX 6
 #if SRLA_MAX_PARAMETER_PRESETS_INDEX != (SRLA_NUM_PARAMETER_PRESETS - 1)
@@ -49,6 +51,8 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'P', "long-term-prediction", "Specify long term (pitch) prediction order (must be odd number, default:0 (disabled))",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
+    {   0, "svr-filter-learning-iteration", "Specify the number of itration in filter computation using SVR (default:" TOSTRING(DEFALUT_NUM_SVR_FILTER_LEARNING_ITERATIONS) ")",
+        COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     {   0, "no-checksum-check", "Whether to NOT check checksum at decoding (default:no)",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'h', "help", "Show command help message",
@@ -69,7 +73,8 @@ static void encode_block_callback(
 
 /* エンコード 成功時は0、失敗時は0以外を返す */
 static int do_encode(const char *in_filename, const char *out_filename,
-    uint32_t encode_preset_no, uint32_t max_num_block_samples, uint32_t variable_block_num_divisions, uint32_t lookahead_samples_factor, uint32_t ltp_order)
+    uint32_t encode_preset_no, uint32_t max_num_block_samples, uint32_t variable_block_num_divisions,
+    uint32_t lookahead_samples_factor, uint32_t ltp_order, uint32_t num_svr_filter_learning_iteration)
 {
     FILE *out_fp;
     struct WAVFile *in_wav;
@@ -108,6 +113,7 @@ static int do_encode(const char *in_filename, const char *out_filename,
     parameter.min_num_samples_per_block = max_num_block_samples >> variable_block_num_divisions;
     parameter.max_num_samples_per_block = max_num_block_samples;
     parameter.num_lookahead_samples = lookahead_samples_factor * max_num_block_samples;
+    parameter.num_svr_filter_learning_iteration = num_svr_filter_learning_iteration;
     parameter.ltp_order = ltp_order;
     /* プリセットの反映 */
     parameter.preset = (uint8_t)encode_preset_no;
@@ -307,6 +313,7 @@ int main(int argc, char** argv)
         uint32_t variable_block_num_divisions = DEFALUT_NUM_VARIABLE_BLOCK_DIVISIONS;
         uint32_t lookahead_samples_factor = DEFALUT_LOOKAHEAD_SAMPLES_FACTOR;
         uint32_t ltp_order = 0;
+        uint32_t num_svr_filter_learning_iteration = DEFALUT_NUM_SVR_FILTER_LEARNING_ITERATIONS;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
@@ -381,9 +388,19 @@ int main(int argc, char** argv)
                 return 1;
             }
         }
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "svr-filter-learning-iteration") == COMMAND_LINE_PARSER_TRUE) {
+            char *e;
+            const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "svr-filter-learning-iteration");
+            num_svr_filter_learning_iteration = (uint32_t)strtol(lstr, &e, 10);
+            if (*e != '\0') {
+                fprintf(stderr, "%s: invalid number of lookahead samples. (irregular character found in %s at %s)\n", argv[0], lstr, e);
+                return 1;
+            }
+        }
         /* 一括エンコード実行 */
         if (do_encode(input_file, output_file,
-            encode_preset_no, max_num_block_samples, variable_block_num_divisions, lookahead_samples_factor, ltp_order) != 0) {
+            encode_preset_no, max_num_block_samples, variable_block_num_divisions,
+            lookahead_samples_factor, ltp_order, num_svr_filter_learning_iteration) != 0) {
             fprintf(stderr, "%s: failed to encode %s. \n", argv[0], input_file);
             return 1;
         }

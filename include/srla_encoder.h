@@ -13,6 +13,7 @@ struct SRLAEncodeParameter {
     uint32_t max_num_samples_per_block; /* ブロックあたり最大サンプル数 */
     uint32_t num_lookahead_samples; /* 先読みサンプル数 */
     uint32_t ltp_order; /* LTP次数 */
+    uint32_t num_svr_filter_learning_iteration; /* SVRフィルタ学習繰り返し回数 */
     uint8_t preset; /* エンコードパラメータプリセット */
 };
 

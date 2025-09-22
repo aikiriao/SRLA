@@ -94,7 +94,6 @@ struct SRLAParameterPreset {
     uint32_t max_num_parameters; /* 最大パラメータ数 */
     SRLAChannelProcessMethodTactics ch_process_method_tactics; /* マルチチャンネル処理の決定法 */
     SRLAChannelLPCOrderDecisionTactics lpc_order_tactics; /* LPCの次数決定法 */
-    uint32_t svr_max_num_iterations; /* SVRの最大繰り返し回数 */
     const double *margin_list; /* マージンリスト */
     uint32_t margin_list_size; /* マージンリストサイズ */
 };

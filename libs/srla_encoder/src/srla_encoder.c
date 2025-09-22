@@ -42,6 +42,7 @@ struct SRLAEncoder {
     uint32_t lb_num_samples_per_block; /* ブロックサンプル数の下限 */
     uint32_t max_num_parameters; /* 最大パラメータ数 */
     uint32_t ltp_order; /* LTP次数 */
+    uint32_t num_svr_filter_learning_iteration; /* SVR学習繰り返し回数 */
     uint8_t set_parameter; /* パラメータセット済み？ */
     struct LPCCalculator *lpcc; /* LPC計算ハンドル */
     struct SRLAPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
@@ -745,6 +746,8 @@ SRLAApiResult SRLAEncoder_SetEncodeParameter(
     encoder->num_lookahead_samples = parameter->num_lookahead_samples;
     /* LTP次数設定 */
     encoder->ltp_order = parameter->ltp_order;
+    /* SVR学習繰り返し回数設定 */
+    encoder->num_svr_filter_learning_iteration = parameter->num_svr_filter_learning_iteration;
 
     /* ヘッダ設定 */
     encoder->header = tmp_header;
@@ -1084,7 +1087,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
             /* SVRによるLPC係数計算 */
             if ((ret = LPCCalculator_CalculateLPCCoefficientsSVR(encoder->lpcc,
                 buffer_double, num_samples,
-                double_coef, tmp_lpc_lpc_coef_order, parameter_preset->svr_max_num_iterations,
+                double_coef, tmp_lpc_lpc_coef_order, encoder->num_svr_filter_learning_iteration,
                 LPC_WINDOWTYPE_WELCH, SRLA_LPC_RIDGE_REGULARIZATION_PARAMETER,
                 parameter_preset->margin_list, parameter_preset->margin_list_size)) != LPC_APIRESULT_OK) {
                 return SRLA_ERROR_NG;
