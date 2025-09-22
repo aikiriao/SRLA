@@ -17,6 +17,7 @@ extern "C" {
         header__p->num_channels                 = 1;\
         header__p->sampling_rate                = 44100;\
         header__p->bits_per_sample              = 16;\
+        header__p->offset_lshift                = 0;\
         header__p->num_samples                  = 1024;\
         header__p->max_num_samples_per_block    = 32;\
         header__p->preset                       = 0;\

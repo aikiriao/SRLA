@@ -173,6 +173,36 @@ void SRLAUtility_SRtoLRConversion(int32_t **buffer, uint32_t num_samples)
     }
 }
 
+/* オフセットされている左シフト量を計算 */
+uint32_t SRLAUtility_ComputeOffsetLeftShift(
+    const int32_t* const* input, uint32_t num_channels, uint32_t num_samples)
+{
+    uint32_t ch, smpl, offset_shift;
+    uint32_t mask = 0;
+
+    SRLA_ASSERT(input != NULL);
+
+    /* 使用されているビットを検査 */
+    for (ch = 0; ch < num_channels; ch++) {
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            mask |= (uint32_t)input[ch][smpl];
+        }
+    }
+
+    /* 全入力が0の場合はシフトなしとする */
+    if (mask == 0) {
+        return 0;
+    }
+
+    /* ntz（末尾へ続く0の個数）を計算
+    * ntz(x) = 32 - nlz(~x & (x-1)), nlz(x) = 31 - log2ceil(x)を使用 */
+    offset_shift = 1 + SRLAUTILITY_LOG2FLOOR(~mask & (mask - 1));
+    SRLA_ASSERT(offset_shift <= 31);
+
+    return offset_shift;
+}
+
+
 /* プリエンファシスフィルタ初期化 */
 void SRLAPreemphasisFilter_Initialize(struct SRLAPreemphasisFilter *preem)
 {

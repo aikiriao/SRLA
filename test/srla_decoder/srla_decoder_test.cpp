@@ -19,6 +19,7 @@ extern "C" {
         header__p->num_channels                 = 1;\
         header__p->sampling_rate                = 44100;\
         header__p->bits_per_sample              = 16;\
+        header__p->offset_lshift                = 0;\
         header__p->num_samples                  = 8192;\
         header__p->max_num_samples_per_block    = 1024;\
         header__p->preset                       = 0;\
@@ -155,17 +156,24 @@ TEST(SRLADecoderTest, DecodeHeaderTest)
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLADecoder_DecodeHeader(data, sizeof(data), &getheader));
         EXPECT_EQ(SRLA_ERROR_INVALID_FORMAT, SRLADecoder_CheckHeaderFormat(&getheader));
 
+        /* 異常なオフセットされた左シフト量 */
+        memcpy(data, valid_data, sizeof(valid_data));
+        memset(&getheader, 0xCD, sizeof(getheader));
+        ByteArray_WriteUint8(&data[24], 32);
+        EXPECT_EQ(SRLA_APIRESULT_OK, SRLADecoder_DecodeHeader(data, sizeof(data), &getheader));
+        EXPECT_EQ(SRLA_ERROR_INVALID_FORMAT, SRLADecoder_CheckHeaderFormat(&getheader));
+
         /* 異常なブロックあたり最大サンプル数 */
         memcpy(data, valid_data, sizeof(valid_data));
         memset(&getheader, 0xCD, sizeof(getheader));
-        ByteArray_WriteUint32BE(&data[24], 0);
+        ByteArray_WriteUint32BE(&data[25], 0);
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLADecoder_DecodeHeader(data, sizeof(data), &getheader));
         EXPECT_EQ(SRLA_ERROR_INVALID_FORMAT, SRLADecoder_CheckHeaderFormat(&getheader));
 
         /* 異常なプリセット */
         memcpy(data, valid_data, sizeof(valid_data));
         memset(&getheader, 0xCD, sizeof(getheader));
-        ByteArray_WriteUint8(&data[28], SRLA_NUM_PARAMETER_PRESETS);
+        ByteArray_WriteUint8(&data[29], SRLA_NUM_PARAMETER_PRESETS);
         EXPECT_EQ(SRLA_APIRESULT_OK, SRLADecoder_DecodeHeader(data, sizeof(data), &getheader));
         EXPECT_EQ(SRLA_ERROR_INVALID_FORMAT, SRLADecoder_CheckHeaderFormat(&getheader));
     }
