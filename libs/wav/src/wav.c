@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 /* パーサの読み込みバッファサイズ */
 #define WAVBITBUFFER_BUFFER_SIZE (32 * 1024)
