@@ -157,7 +157,7 @@ static WAVError WAVParser_ParseWAVFormat(struct WAVParser *parser, struct WAVFor
     }
 
     /* フォーマットIDをチェック
-     * 補足）1（リニアPCM）以外対応していない */
+    * 補足）1（リニアPCM）以外対応していない */
     if (WAVParser_GetLittleEndianBytes(parser, 2, &bitsbuf) != WAV_ERROR_OK) { return WAV_ERROR_IO; }
     if (((tmp_format.file_format == WAV_FILEFORMAT_PCMWAVEFORMAT) && (bitsbuf != 1))
         || ((tmp_format.file_format == WAV_FILEFORMAT_WAVEFORMATEXTENSIBLE) && (bitsbuf != 0xFFFE))){
