@@ -162,7 +162,7 @@ static int do_decode(const char *in_filename, const char *out_filename, uint8_t 
 {
     FILE* in_fp;
     struct WAVFile* out_wav;
-    struct WAVFileFormat wav_format;
+    struct WAVFormat wav_format;
     struct stat fstat;
     struct SRLADecoder* decoder;
     struct SRLADecoderConfig config;
@@ -198,7 +198,7 @@ static int do_decode(const char *in_filename, const char *out_filename, uint8_t 
     }
 
     /* 出力wavハンドルの生成 */
-    wav_format.data_format     = WAV_DATA_FORMAT_PCM;
+    wav_format.file_format     = WAV_FILEFORMAT_PCMWAVEFORMAT;
     wav_format.num_channels    = header.num_channels;
     wav_format.sampling_rate   = header.sampling_rate;
     wav_format.bits_per_sample = header.bits_per_sample;
