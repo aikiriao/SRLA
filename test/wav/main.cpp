@@ -14,7 +14,7 @@ TEST(WAVTest, GetWAVFormatTest)
 
     /* 失敗テスト */
     {
-        struct WAVFileFormat format;
+        struct WAVFormat format;
 
         EXPECT_EQ(
                 WAV_APIRESULT_NG,
@@ -34,10 +34,16 @@ TEST(WAVTest, GetWAVFormatTest)
 
     /* 実wavファイルからの取得テスト */
     {
-        struct WAVFileFormat format;
+        struct WAVFormat format;
         EXPECT_EQ(
                 WAV_APIRESULT_OK,
                 WAV_GetWAVFormatFromFile("a.wav", &format));
+        EXPECT_EQ(
+            WAV_APIRESULT_OK,
+            WAV_GetWAVFormatFromFile("M1F1-int16WE-AFsp.wav", &format));
+        EXPECT_EQ(
+            WAV_APIRESULT_OK,
+            WAV_GetWAVFormatFromFile("M1F1-int16-AFsp.aif", &format));
     }
 
 }
@@ -48,12 +54,12 @@ TEST(WAVTest, CreateDestroyTest)
 
     /* 失敗テスト */
     {
-        struct WAVFileFormat format;
-        format.data_format      = (WAVDataFormat)255; /* 不正なフォーマット */
-        format.bits_per_sample  = 16;
-        format.num_channels     = 8;
-        format.sampling_rate    = 48000;
-        format.num_samples      = 48000 * 5;
+        struct WAVFormat format;
+        format.file_format = (WAVFileFormat)255; /* 不正なフォーマット */
+        format.bits_per_sample = 16;
+        format.num_channels = 8;
+        format.sampling_rate = 48000;
+        format.num_samples = 48000 * 5;
         EXPECT_TRUE(WAV_Create(NULL) == NULL);
         EXPECT_TRUE(WAV_Create(&format) == NULL);
         EXPECT_TRUE(WAV_CreateFromFile(NULL) == NULL);
@@ -62,21 +68,21 @@ TEST(WAVTest, CreateDestroyTest)
 
     /* ハンドル作成 / 破棄テスト */
     {
-        uint32_t  ch, is_ok;
-        struct WAVFile*       wavfile;
-        struct WAVFileFormat  format;
-        format.data_format     = WAV_DATA_FORMAT_PCM;
+        uint32_t ch, is_ok;
+        struct WAVFile* wavfile;
+        struct WAVFormat format;
+        format.file_format = WAV_FILEFORMAT_PCMWAVEFORMAT;
         format.bits_per_sample = 16;
-        format.num_channels    = 8;
-        format.sampling_rate   = 48000;
-        format.num_samples     = 48000 * 5;
+        format.num_channels = 8;
+        format.sampling_rate = 48000;
+        format.num_samples = 48000 * 5;
 
         wavfile = WAV_Create(&format);
         EXPECT_TRUE(wavfile != NULL);
         EXPECT_TRUE(wavfile->data != NULL);
         EXPECT_EQ(
                 0,
-                memcmp(&wavfile->format, &format, sizeof(struct WAVFileFormat)));
+                memcmp(&wavfile->format, &format, sizeof(struct WAVFormat)));
         is_ok = 1;
         for (ch = 0; ch < wavfile->format.num_channels; ch++) {
             if (wavfile->data[ch] == NULL) {
@@ -89,12 +95,19 @@ TEST(WAVTest, CreateDestroyTest)
         WAV_Destroy(wavfile);
     }
 
-
     /* 実wavファイルからの取得テスト */
     {
-        struct WAVFile* wavfile;
+        struct WAVFile *wavfile = NULL;
 
         wavfile = WAV_CreateFromFile("a.wav");
+        EXPECT_TRUE(wavfile != NULL);
+        WAV_Destroy(wavfile);
+
+        wavfile = WAV_CreateFromFile("M1F1-int16WE-AFsp.wav");
+        EXPECT_TRUE(wavfile != NULL);
+        WAV_Destroy(wavfile);
+
+        wavfile = WAV_CreateFromFile("M1F1-int16-AFsp.aif");
         EXPECT_TRUE(wavfile != NULL);
         WAV_Destroy(wavfile);
     }
@@ -105,16 +118,16 @@ TEST(WAVTest, WriteTest)
 {
     /* 失敗テスト */
     {
-        const char            test_filename[] = "test.wav";
-        struct WAVWriter      writer;
-        struct WAVFileFormat  format;
-        FILE                  *fp;
+        const char test_filename[] = "test.wav";
+        struct WAVWriter writer;
+        struct WAVFormat format;
+        FILE *fp;
 
-        format.data_format     = (WAVDataFormat)0xFF;  /* 不正  */
-        format.num_samples     = 0;     /* dummy */
-        format.num_channels    = 0;     /* dummy */
+        format.file_format = (WAVFileFormat)0xFF;  /* 不正  */
+        format.num_samples = 0;     /* dummy */
+        format.num_channels = 0;     /* dummy */
         format.bits_per_sample = 0;     /* dummy */
-        format.sampling_rate   = 0;     /* dummy */
+        format.sampling_rate = 0;     /* dummy */
 
         fp = fopen(test_filename, "wb");
         WAVWriter_Initialize(&writer, fp);
@@ -138,18 +151,18 @@ TEST(WAVTest, WriteTest)
 
     /* PCMデータ書き出しテスト */
     {
-        const char            test_filename[] = "test.wav";
-        struct WAVWriter      writer;
-        struct WAVFileFormat  format;
-        FILE                  *fp;
-        struct WAVFile*       wavfile;
-        uint32_t              ch, sample;
+        const char test_filename[] = "test.wav";
+        struct WAVWriter writer;
+        struct WAVFormat format;
+        FILE *fp;
+        struct WAVFile* wavfile;
+        uint32_t ch, sample;
 
         /* 適宜フォーマットを用意 */
-        format.data_format     = WAV_DATA_FORMAT_PCM;
-        format.num_samples     = 16;
-        format.num_channels    = 1;
-        format.sampling_rate   = 48000;
+        format.file_format = WAV_FILEFORMAT_PCMWAVEFORMAT;
+        format.num_samples = 16;
+        format.num_channels = 1;
+        format.sampling_rate = 48000;
         format.bits_per_sample = 8;
 
         /* ハンドル作成 */
@@ -183,6 +196,53 @@ TEST(WAVTest, WriteTest)
         fclose(fp);
     }
 
+    /* PCMデータ書き出しテスト(AIFF) */
+    {
+        const char test_filename[] = "test.aif";
+        struct WAVWriter writer;
+        struct WAVFormat format;
+        FILE *fp;
+        struct WAVFile *wavfile;
+        uint32_t ch, sample;
+
+        /* 適宜フォーマットを用意 */
+        format.file_format = WAV_FILEFORMAT_AIFF;
+        format.num_samples = 16;
+        format.num_channels = 1;
+        format.sampling_rate = 48000;
+        format.bits_per_sample = 8;
+
+        /* ハンドル作成 */
+        wavfile = WAV_Create(&format);
+        EXPECT_TRUE(wavfile != NULL);
+
+        /* データを書いてみる */
+        for (ch = 0; ch < format.num_channels; ch++) {
+            for (sample = 0; sample < format.num_samples; sample++) {
+                WAVFile_PCM(wavfile, sample, ch) = sample - (int32_t)format.num_samples / 2;
+            }
+        }
+
+        fp = fopen(test_filename, "wb");
+        WAVWriter_Initialize(&writer, fp);
+
+        /* 不正なビット深度に書き換えて書き出し */
+        /* -> 失敗を期待 */
+        wavfile->format.bits_per_sample = 3;
+        EXPECT_NE(
+            WAV_ERROR_OK,
+            WAVWriter_PutAIFFPcmData(&writer, wavfile));
+
+        /* 書き出し */
+        wavfile->format.bits_per_sample = 8;
+        EXPECT_EQ(
+            WAV_ERROR_OK,
+            WAVWriter_PutAIFFPcmData(&writer, wavfile));
+
+        WAVWriter_Finalize(&writer);
+        fclose(fp);
+    }
+
     /* 実ファイルを読み出してそのまま書き出してみる */
     {
         uint32_t ch, is_ok, i_test;
@@ -196,6 +256,22 @@ TEST(WAVTest, WriteTest)
             "16bit_2ch.wav",
             "24bit_2ch.wav",
             "32bit_2ch.wav",
+            "M1F1-uint8-AFsp.wav",
+            "M1F1-uint8WE-AFsp.wav",
+            "M1F1-int16-AFsp.wav",
+            "M1F1-int16WE-AFsp.wav",
+            "M1F1-int24-AFsp.wav",
+            "M1F1-int24WE-AFsp.wav",
+            "M1F1-int32-AFsp.wav",
+            "M1F1-int32WE-AFsp.wav",
+            "M1F1-int8-AFsp.aif",
+            "M1F1-int16-AFsp.aif",
+            "M1F1-int24-AFsp.aif",
+            "M1F1-int32-AFsp.aif",
+            "400Hz_loop_0_220500.aif",
+            "400Hz_loop_0_441000.aif",
+            "400Hz_loop_100000_300000.aif",
+            "400Hz_loop_220500_441000.aif",
         };
         const char test_filename[] = "tmp.wav";
         struct WAVFile *src_wavfile, *test_wavfile;
@@ -218,7 +294,7 @@ TEST(WAVTest, WriteTest)
             /* 最初に読み込んだファイルと一致するか？ */
             /* フォーマットの一致確認 */
             EXPECT_EQ(
-                    0, memcmp(&src_wavfile->format, &test_wavfile->format, sizeof(struct WAVFileFormat)));
+                    0, memcmp(&src_wavfile->format, &test_wavfile->format, sizeof(struct WAVFormat)));
 
             /* PCMの一致確認 */
             is_ok = 1;

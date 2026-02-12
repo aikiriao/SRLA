@@ -6,33 +6,51 @@
 /* PCM型 - ファイルのビット深度如何によらず、メモリ上では全て符号付き32bitで取り扱う */
 typedef int32_t WAVPcmData;
 
-/* WAVデータのフォーマット */
-typedef enum WAVDataFormatTag {
-    WAV_DATA_FORMAT_PCM             /* PCMのみ対応 */
-} WAVDataFormat;
+/* WAVファイルフォーマット */
+typedef enum {
+    WAV_FILEFORMAT_PCMWAVEFORMAT = 0, /* PCMWAVEFORMAT */
+    WAV_FILEFORMAT_WAVEFORMATEXTENSIBLE, /* WAVEFORMATEXTENSIBLE */
+    WAV_FILEFORMAT_AIFF, /* AIFF */
+    WAV_FILEFORMAT_INVALID, /* 無効 */
+} WAVFileFormat;
 
 /* API結果型 */
-typedef enum WAVApiResultTag {
-    WAV_APIRESULT_OK = 0,
-    WAV_APIRESULT_NG,
-    WAV_APIRESULT_INVALID_FORMAT,     /* フォーマットが不正 */
-    WAV_APIRESULT_IOERROR,            /* ファイル入出力エラー */
-    WAV_APIRESULT_INVALID_PARAMETER   /* 引数が不正 */
+typedef enum {
+    WAV_APIRESULT_OK = 0, /* 成功 */
+    WAV_APIRESULT_NG, /* 分類不能なエラー */
+    WAV_APIRESULT_UNSUPPORTED_FORMAT, /* サポートしていないフォーマット */
+    WAV_APIRESULT_INVALID_FORMAT, /* フォーマットが不正 */
+    WAV_APIRESULT_IOERROR, /* ファイル入出力エラー */
+    WAV_APIRESULT_INVALID_PARAMETER /* 引数が不正 */
 } WAVApiResult;
 
-/* WAVファイルフォーマット */
-struct WAVFileFormat {
-    WAVDataFormat data_format;      /* データフォーマット */
-    uint32_t      num_channels;     /* チャンネル数 */
-    uint32_t      sampling_rate;    /* サンプリングレート */
-    uint32_t      bits_per_sample;  /* 量子化ビット数 */
-    uint32_t      num_samples;      /* サンプル数 */
+/* WAVフォーマット */
+struct WAVFormat {
+    WAVFileFormat file_format; /* ファイルフォーマット */
+    uint32_t num_channels; /* チャンネル数 */
+    uint32_t sampling_rate; /* サンプリングレート */
+    uint32_t bits_per_sample; /* 量子化ビット数 */
+    uint32_t num_samples; /* サンプル数 */
+    union {
+        /* WAVEFORMATEXTENSIBLEの拡張情報 */
+        struct {
+            uint16_t sample_information;
+            uint32_t channel_mask;
+            char guid[16];
+        } wav_extensible;
+        struct {
+            uint8_t key;
+            int16_t gain;
+            uint32_t loop_begin;
+            uint32_t loop_end;
+        } aiff_instrument;
+    } u;
 };
 
 /* WAVファイルハンドル */
 struct WAVFile {
-    struct WAVFileFormat  format;   /* フォーマット */
-    WAVPcmData**          data;     /* 実データ     */
+    struct WAVFormat format; /* フォーマット */
+    WAVPcmData **data; /* PCM配列 */
 };
 
 /* アクセサ */
@@ -46,7 +64,7 @@ extern "C" {
 struct WAVFile* WAV_CreateFromFile(const char* filename);
 
 /* フォーマットを指定して新規にWAVファイルハンドルを作成 */
-struct WAVFile* WAV_Create(const struct WAVFileFormat* format);
+struct WAVFile* WAV_Create(const struct WAVFormat* format);
 
 /* WAVファイルハンドルを破棄 */
 void WAV_Destroy(struct WAVFile* wavfile);
@@ -57,7 +75,7 @@ WAVApiResult WAV_WriteToFile(
 
 /* ファイルからWAVファイルフォーマットだけ読み取り */
 WAVApiResult WAV_GetWAVFormatFromFile(
-        const char* filename, struct WAVFileFormat* format);
+        const char* filename, struct WAVFormat* format);
 
 #ifdef __cplusplus
 }

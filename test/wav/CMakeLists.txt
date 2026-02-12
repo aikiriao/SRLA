@@ -37,7 +37,7 @@ set_property(
     )
 
 # ビルド後にテストリソースを持ってくる
-file(GLOB TEST_WAVE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.wav)
+file(GLOB_RECURSE TEST_WAVE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.wav ${CMAKE_CURRENT_SOURCE_DIR}/*.aif)
 add_custom_command(
     TARGET ${TEST_NAME}
     POST_BUILD
