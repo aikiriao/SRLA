@@ -347,7 +347,6 @@ if __name__ == "__main__":
                     for codec in CODEC_CONFUGURES:
                         row.append(np.mean(results[codec.get_label()][f][entry]))
                 writer.writerow(row)
-        writer.writerow(row)
 
     # 全カテゴリ結果を結合した結果の計算
     total_result = {}
