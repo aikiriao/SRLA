@@ -202,13 +202,58 @@ uint32_t SRLAUtility_ComputeOffsetLeftShift(
     return offset_shift;
 }
 
-
 /* プリエンファシスフィルタ初期化 */
 void SRLAPreemphasisFilter_Initialize(struct SRLAPreemphasisFilter *preem)
 {
     SRLA_ASSERT(preem != NULL);
     preem->prev = 0;
     preem->coef = 0;
+}
+
+/* プリエンファシスの係数計算 */
+void SRLAPreemphasisFilter_CalculateCoefficient(
+    struct SRLAPreemphasisFilter *preem, const int32_t *data, uint32_t num_samples)
+{
+    uint32_t i;
+    double r0, r1;
+    double curr, succ;
+    double double_coef;
+
+    SRLA_ASSERT(preem != NULL);
+    SRLA_ASSERT(data != NULL);
+
+    /* 相関の計算 */
+    curr = data[0];
+    succ = data[1];
+    r0 = r1 = 0.0;
+    for (i = 0; i < num_samples - 2; i++) {
+        const double succsucc = data[i + 2];
+        r0 += curr * curr;
+        r1 += curr * succ;
+        curr = succ;
+        succ = succsucc;
+    }
+    /* i = num_samples - 1 */
+    r0 += curr * curr;
+    r1 += curr * succ;
+    curr = succ;
+    r0 += curr * curr;
+    SRLA_ASSERT(r0 >= r1);
+
+    /* 分散が小さい場合は0を設定 */
+    if (r0 < 1e-6) {
+        preem->coef = 0;
+        return;
+    }
+
+    /* 係数計算・固定小数化 */
+    {
+        const double double_coef = r1 / r0;
+        int32_t coef = (int32_t)SRLAUtility_Round(double_coef * pow(2.0f, SRLA_PREEMPHASIS_COEF_SHIFT));
+        /* 丸め込み */
+        coef = SRLAUTILITY_INNER_VALUE(coef, -(1 << SRLA_PREEMPHASIS_COEF_SHIFT), (1 << SRLA_PREEMPHASIS_COEF_SHIFT) - 1);
+        preem->coef = coef;
+    }
 }
 
 /* 多段プリエンファシスの係数計算 */
@@ -221,7 +266,6 @@ void SRLAPreemphasisFilter_CalculateMultiStageCoefficients(
     double double_coef[SRLA_NUM_PREEMPHASIS_FILTERS];
 
     /* 注意）現段階では2回を前提 */
-    SRLA_STATIC_ASSERT(SRLA_NUM_PREEMPHASIS_FILTERS == 2);
     SRLA_ASSERT(num_preem == 2);
 
     SRLA_ASSERT(preem != NULL);
@@ -313,6 +357,26 @@ void SRLAPreemphasisFilter_Preemphasis(
     preem->prev = prev;
 }
 
+/* デエンファシスを適用 */
+void SRLAPreemphasisFilter_Deemphasis(
+    struct SRLAPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples)
+{
+    uint32_t smpl;
+    const int32_t c0 = preem[0].coef;
+
+    SRLA_ASSERT(buffer != NULL);
+    SRLA_ASSERT(preem != NULL);
+
+    buffer[0] += (preem[0].prev * c0) >> SRLA_PREEMPHASIS_COEF_SHIFT;
+
+    for (smpl = 2; smpl < num_samples; smpl++) {
+        buffer[smpl - 1] += (buffer[smpl - 2] * c0) >> SRLA_PREEMPHASIS_COEF_SHIFT;
+    }
+
+    preem[0].prev = buffer[num_samples - 1];
+    buffer[num_samples - 1] += (buffer[num_samples - 2] * c0) >> SRLA_PREEMPHASIS_COEF_SHIFT;
+}
+
 /* デエンファシスを複数回適用 */
 void SRLAPreemphasisFilter_MultiStageDeemphasis(
     struct SRLAPreemphasisFilter *preem, uint32_t num_preem, int32_t *buffer, uint32_t num_samples)
@@ -322,7 +386,6 @@ void SRLAPreemphasisFilter_MultiStageDeemphasis(
     const int32_t c1 = preem[1].coef;
 
     /* 注意）現段階では2回を前提 */
-    SRLA_STATIC_ASSERT(SRLA_NUM_PREEMPHASIS_FILTERS == 2);
     SRLA_ASSERT(num_preem == 2);
 
     SRLA_ASSERT(buffer != NULL);

@@ -4,10 +4,10 @@
 #include "srla_stdint.h"
 
 /* フォーマットバージョン */
-#define SRLA_FORMAT_VERSION         9
+#define SRLA_FORMAT_VERSION         10
 
 /* コーデックバージョン */
-#define SRLA_CODEC_VERSION          17
+#define SRLA_CODEC_VERSION          18
 
 /* ヘッダサイズ */
 #define SRLA_HEADER_SIZE            30

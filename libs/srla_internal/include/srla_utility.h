@@ -138,12 +138,20 @@ uint32_t SRLAUtility_ComputeOffsetLeftShift(
 /* プリエンファシスフィルタ初期化 */
 void SRLAPreemphasisFilter_Initialize(struct SRLAPreemphasisFilter *preem);
 
+/* プリエンファシスフィルタの係数計算 */
+void SRLAPreemphasisFilter_CalculateCoefficient(
+    struct SRLAPreemphasisFilter *preem, const int32_t *data, uint32_t num_samples);
+
 /* 多段プリエンファシスの係数計算 */
 void SRLAPreemphasisFilter_CalculateMultiStageCoefficients(
     struct SRLAPreemphasisFilter *preem, uint32_t num_preem, const int32_t *buffer, uint32_t num_samples);
 
 /* プリエンファシス */
 void SRLAPreemphasisFilter_Preemphasis(
+    struct SRLAPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
+
+/* デエンファシス */
+void SRLAPreemphasisFilter_Deemphasis(
     struct SRLAPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
 
 /* デエンファシスを複数回適用 */
