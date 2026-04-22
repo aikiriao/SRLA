@@ -997,7 +997,7 @@ static SRLAError SRLAEncoder_ComputeCoefficientsPerChannel(
     {
         const int32_t head = buffer_int[0];
         struct SRLAPreemphasisFilter filter[SRLA_NUM_PREEMPHASIS_FILTERS] = { 0, };
-        SRLAPreemphasisFilter_CalculateMultiStageCoefficients(filter, SRLA_NUM_PREEMPHASIS_FILTERS, buffer_int, num_samples);
+        SRLAPreemphasisFilter_CalculateCoefficient(filter, buffer_int, num_samples);
         for (p = 0; p < SRLA_NUM_PREEMPHASIS_FILTERS; p++) {
             filter[p].prev = head;
             SRLAPreemphasisFilter_Preemphasis(&filter[p], buffer_int, num_samples);

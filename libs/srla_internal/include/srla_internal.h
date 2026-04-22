@@ -14,7 +14,7 @@
 /* プリエンファシスの係数シフト量 */
 #define SRLA_PREEMPHASIS_COEF_SHIFT 4
 /* プリエンファシスフィルタの適用回数 */
-#define SRLA_NUM_PREEMPHASIS_FILTERS 2
+#define SRLA_NUM_PREEMPHASIS_FILTERS 1
 /* LPC係数のビット幅 */
 #define SRLA_LPC_COEFFICIENT_BITWIDTH 8
 /* LPC係数右シフト量のビット幅 */

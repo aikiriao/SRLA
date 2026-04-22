@@ -556,8 +556,8 @@ static SRLAApiResult SRLADecoder_DecodeCompressData(
             num_decode_samples, decoder->ltp_coef[ch], decoder->ltp_order[ch],
             decoder->ltp_period[ch], SRLA_LTP_COEFFICIENT_BITWIDTH - 1);
         /* デエンファシス */
-        SRLAPreemphasisFilter_MultiStageDeemphasis(
-            decoder->de_emphasis[ch], SRLA_NUM_PREEMPHASIS_FILTERS, buffer[ch], num_decode_samples);
+        SRLAPreemphasisFilter_Deemphasis(
+            decoder->de_emphasis[ch], buffer[ch], num_decode_samples);
     }
 
     /* マルチチャンネル処理 */
